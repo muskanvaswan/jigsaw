@@ -75,8 +75,6 @@ struct LibraryView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 30) {
                 HStack {
-                    Text("Puzzles")
-                        .font(.system(size: 34, weight: .semibold, design: .rounded))
                     Spacer()
                     AccountButton { showingAccount = true }
                     Button { draft = Draft(photo: nil) } label: {
