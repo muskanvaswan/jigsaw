@@ -1,4 +1,3 @@
-import PhotosUI
 import SwiftUI
 
 /// Home: every puzzle on this device, most recently played first.
@@ -6,14 +5,21 @@ struct LibraryView: View {
     let open: (UUID) -> Void
 
     @Environment(PuzzleStore.self) private var store
-    @State private var pickedPhoto: PhotosPickerItem?
+    @Environment(Account.self) private var account
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var draft: Draft?
-    @State private var isLoadingPhoto = false
+    @State private var isCreating = false
     @State private var pendingDelete: PuzzleRecord?
+    @State private var showingAccount = false
+    @State private var failure: String?
 
+    /// Room at the sides: generous on iPad, tighter on iPhone.
+    private var gutter: CGFloat { sizeClass == .compact ? 20 : 44 }
+
+    /// A new puzzle being set up, maybe with its picture already chosen.
     private struct Draft: Identifiable {
         let id = UUID()
-        let photo: UIImage
+        let photo: UIImage?
     }
 
     var body: some View {
@@ -24,23 +30,44 @@ struct LibraryView: View {
             } else {
                 library
             }
-            if isLoadingPhoto {
+            if isCreating {
                 ProgressView()
                     .padding(22)
                     .chromeBackground(Circle())
             }
         }
-        .onChange(of: pickedPhoto) { _, item in load(item) }
         .sheet(item: $draft) { draft in
-            NewPuzzleSheet(photo: draft.photo) { rows, cols, seed, snapToBoard in
-                start(draft.photo, rows: rows, cols: cols, seed: seed, snapToBoard: snapToBoard)
+            NewPuzzleSheet(photo: draft.photo) { photo, rows, cols, seed, snapToBoard in
+                start(photo, rows: rows, cols: cols, seed: seed, snapToBoard: snapToBoard)
             }
         }
+        .sheet(isPresented: $showingAccount) { AccountSheet() }
         .alert("Delete this puzzle?", isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
                presenting: pendingDelete) { puzzle in
             Button("Delete", role: .destructive) { store.delete(puzzle.id) }
-        } message: { _ in
-            Text("Its progress will be lost.")
+        } message: { puzzle in
+            Text(puzzle.cloud?.isOwner == true ? "It will be removed for everyone you shared it with."
+                 : puzzle.cloud != nil ? "You'll leave this shared puzzle." : "Its progress will be lost.")
+        }
+        .alert("Couldn't share", isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(failure ?? "")
+        }
+    }
+
+    private func share(_ puzzle: PuzzleRecord) {
+        guard account.isSignedIn else {
+            showingAccount = true
+            return
+        }
+        Task {
+            do {
+                let share = try await store.share(puzzle.id)
+                Sharing.present(share, container: CloudSync.shared.container, thumbnail: store.thumbnails[puzzle.id])
+            } catch {
+                failure = error.localizedDescription
+            }
         }
     }
 
@@ -51,7 +78,8 @@ struct LibraryView: View {
                     Text("Puzzles")
                         .font(.system(size: 34, weight: .semibold, design: .rounded))
                     Spacer()
-                    PhotosPicker(selection: $pickedPhoto, matching: .images) {
+                    AccountButton { showingAccount = true }
+                    Button { draft = Draft(photo: nil) } label: {
                         Image(systemName: "plus")
                             .font(.system(size: 19, weight: .medium))
                             .foregroundStyle(Color.primary)
@@ -63,67 +91,46 @@ struct LibraryView: View {
                     .accessibilityLabel("New puzzle")
                 }
 
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 230, maximum: 340), spacing: 28)], spacing: 34) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 230, maximum: 340), spacing: gutter * 0.6)], spacing: 34) {
                     ForEach(store.puzzles) { puzzle in
                         Button { open(puzzle.id) } label: {
                             PuzzleCard(puzzle: puzzle, thumbnail: store.thumbnails[puzzle.id])
                         }
                         .buttonStyle(.plain)
                         .contextMenu {
+                            Button(puzzle.cloud != nil ? "People…" : "Solve Together…", systemImage: "person.2") { share(puzzle) }
                             Button("Start Over", systemImage: "arrow.counterclockwise") { store.restart(puzzle.id) }
                             Button("Delete", systemImage: "trash", role: .destructive) { pendingDelete = puzzle }
                         }
                     }
                 }
             }
-            .padding(.horizontal, 44)
+            .padding(.horizontal, gutter)
             .padding(.top, 36)
             .padding(.bottom, 60)
         }
     }
 
     private var emptyState: some View {
-        VStack(spacing: 22) {
-            PhotosPicker(selection: $pickedPhoto, matching: .images) {
-                VStack(spacing: 16) {
-                    Image(systemName: "puzzlepiece")
-                        .font(.system(size: 42, weight: .light))
-                    Text("Choose a photo")
-                        .font(.title3.weight(.medium))
-                }
-                .foregroundStyle(Color.primary)
-                .frame(width: 300, height: 220)
-                .background(Color.tray, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Start a puzzle")
+                    .font(.system(size: 28, weight: .semibold, design: .rounded))
+                Text("Any picture becomes a puzzle.")
+                    .foregroundStyle(.secondary)
             }
-            .buttonStyle(.plain)
-            Text("Any picture becomes a puzzle.")
-                .foregroundStyle(.secondary)
+            PhotoSources { draft = Draft(photo: $0) }
         }
-    }
-
-    private func load(_ item: PhotosPickerItem?) {
-        guard let item else { return }
-        isLoadingPhoto = true
-        Task {
-            defer {
-                isLoadingPhoto = false
-                pickedPhoto = nil
-            }
-            guard let data = try? await item.loadTransferable(type: Data.self) else { return }
-            let photo = await Task.detached(priority: .userInitiated) {
-                UIImage(data: data).map { PhotoPrep.prepare($0, longSide: 3200) }
-            }.value
-            if let photo { draft = Draft(photo: photo) }
-        }
+        .frame(maxWidth: 680)
+        .padding(.horizontal, gutter)
     }
 
     private func start(_ photo: UIImage, rows: Int, cols: Int, seed: UInt64, snapToBoard: Bool) {
         draft = nil
-        isLoadingPhoto = true
+        isCreating = true
         Task {
             let id = await store.create(photo: photo, rows: rows, cols: cols, seed: seed, snapToBoard: snapToBoard)
-            isLoadingPhoto = false
+            isCreating = false
             if let id { open(id) }
         }
     }
@@ -149,7 +156,11 @@ private struct PuzzleCard: View {
             .aspectRatio(4 / 3, contentMode: .fit)
             .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
-            HStack {
+            HStack(spacing: 6) {
+                if puzzle.cloud != nil {
+                    Image(systemName: "person.2.fill")
+                        .accessibilityLabel("Shared")
+                }
                 Text("\(puzzle.pieceCount) pieces")
                 Spacer()
                 if puzzle.isSolved {

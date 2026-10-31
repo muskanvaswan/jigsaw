@@ -8,41 +8,71 @@
 
 /* Begin PBXBuildFile section */
 		05182713E8C3DBAD8D1B87B8 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100A3ED197684602F6B4D885 /* Theme.swift */; };
+		0EABE19D4EAADE24DDBE32DD /* AccountSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73F8175CEF847CC06FD9F171 /* AccountSheet.swift */; };
 		1064A98F529EFBD5896F014E /* BoardScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB2A65C8C297C49F2805097C /* BoardScreen.swift */; };
 		28E4492C5A9E0385525806E7 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF832EC3CFA87F22B7DAEFD8 /* LibraryView.swift */; };
 		2DDDFD088D891C0AF3FFA483 /* PuzzleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44A5CC01E7A3F84AD4B9036C /* PuzzleStore.swift */; };
 		399ED80926743DAE0B2C10FB /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B41DDA88501ADBF163A66FA /* BoardView.swift */; };
 		39A62C768E47D3AB230D2187 /* PieceRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B622DD77BA4045CD65D101 /* PieceRenderer.swift */; };
 		5AD0D964039E299A4332A40A /* PuzzleGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 082828929158510F69ADF369 /* PuzzleGeometry.swift */; };
+		60DE49BA89A7728FE85B2AC8 /* Sharing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DDC2DC63811CA5D403C13AF /* Sharing.swift */; };
+		66F9470F65E9A3816842F19A /* great-wave.jpg in Resources */ = {isa = PBXBuildFile; fileRef = F709213C629DB5A0E50FA83A /* great-wave.jpg */; };
+		794EBFDD0EC9F2C422CB862C /* StockImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38B24FFAFCFB736B4746DDCA /* StockImage.swift */; };
+		7B37ECB9B667A26E974C389E /* water-lilies.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 068FEDCE8223BDDE4CEC56A1 /* water-lilies.jpg */; };
+		7D6FEA80632EFA27992EA8FC /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAC8BD3D8CB37126B26F735A /* AppDelegate.swift */; };
+		7EFFDA92D5A9799FC6EE28E7 /* CloudSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = C75B9426D47BC0C72F226B87 /* CloudSync.swift */; };
 		9EACF0599FFEA8531DB55A11 /* JigsawApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02439165B3197A8883D8DD69 /* JigsawApp.swift */; };
+		A76AC7623151FC556757845F /* starry-night.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 014E293AAF573BD361A4F281 /* starry-night.jpg */; };
 		ADF46CA6A917D43FB0C8AF07 /* NewPuzzleSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 966A41016FC848187AA48A2C /* NewPuzzleSheet.swift */; };
 		BA05F7DFE70A4099863C528F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 32751612D6C0071169790A39 /* Assets.xcassets */; };
 		BA5EE4C5448396D993D2E756 /* Click.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A769D024D02E722B5786DE5 /* Click.swift */; };
 		CC3F4CBF20F7511AA1AB9693 /* BoardSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B41A3FCC9AFEF7B47E77A48 /* BoardSession.swift */; };
+		EE14D9979EB78B0A5B5BCC7B /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E67EF32A3313EB3C6597868 /* Account.swift */; };
 		EFE6D7E62D4C130D177392C9 /* PuzzleRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 764B9DE41E2A42BA1952AFF4 /* PuzzleRecord.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		014E293AAF573BD361A4F281 /* starry-night.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "starry-night.jpg"; sourceTree = "<group>"; };
 		02439165B3197A8883D8DD69 /* JigsawApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JigsawApp.swift; sourceTree = "<group>"; };
+		068FEDCE8223BDDE4CEC56A1 /* water-lilies.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "water-lilies.jpg"; sourceTree = "<group>"; };
 		082828929158510F69ADF369 /* PuzzleGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PuzzleGeometry.swift; sourceTree = "<group>"; };
 		0A769D024D02E722B5786DE5 /* Click.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Click.swift; sourceTree = "<group>"; };
 		100A3ED197684602F6B4D885 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		32751612D6C0071169790A39 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		38B24FFAFCFB736B4746DDCA /* StockImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StockImage.swift; sourceTree = "<group>"; };
 		3B41DDA88501ADBF163A66FA /* BoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardView.swift; sourceTree = "<group>"; };
 		412939A08CDEF359EDAF4928 /* Jigsaw.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Jigsaw.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		44A5CC01E7A3F84AD4B9036C /* PuzzleStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PuzzleStore.swift; sourceTree = "<group>"; };
+		5E67EF32A3313EB3C6597868 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Account.swift; sourceTree = "<group>"; };
+		73F8175CEF847CC06FD9F171 /* AccountSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSheet.swift; sourceTree = "<group>"; };
 		764B9DE41E2A42BA1952AFF4 /* PuzzleRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PuzzleRecord.swift; sourceTree = "<group>"; };
 		7B41A3FCC9AFEF7B47E77A48 /* BoardSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardSession.swift; sourceTree = "<group>"; };
+		7DDC2DC63811CA5D403C13AF /* Sharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sharing.swift; sourceTree = "<group>"; };
 		966A41016FC848187AA48A2C /* NewPuzzleSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewPuzzleSheet.swift; sourceTree = "<group>"; };
 		B5B622DD77BA4045CD65D101 /* PieceRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PieceRenderer.swift; sourceTree = "<group>"; };
+		BA659B86305047ED9B79F98B /* Jigsaw.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Jigsaw.entitlements; sourceTree = "<group>"; };
+		BAC8BD3D8CB37126B26F735A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		C75B9426D47BC0C72F226B87 /* CloudSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSync.swift; sourceTree = "<group>"; };
 		DB2A65C8C297C49F2805097C /* BoardScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardScreen.swift; sourceTree = "<group>"; };
+		E002688F0778B0712F2F060C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		EF832EC3CFA87F22B7DAEFD8 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		F709213C629DB5A0E50FA83A /* great-wave.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "great-wave.jpg"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		1FDABE7F5E0A7F45EFC7D731 /* Cloud */ = {
+			isa = PBXGroup;
+			children = (
+				C75B9426D47BC0C72F226B87 /* CloudSync.swift */,
+				7DDC2DC63811CA5D403C13AF /* Sharing.swift */,
+			);
+			path = Cloud;
+			sourceTree = "<group>";
+		};
 		33462C5DFB9F23A026E4BE5B /* App */ = {
 			isa = PBXGroup;
 			children = (
+				BAC8BD3D8CB37126B26F735A /* AppDelegate.swift */,
 				02439165B3197A8883D8DD69 /* JigsawApp.swift */,
 				100A3ED197684602F6B4D885 /* Theme.swift */,
 			);
@@ -57,14 +87,38 @@
 			);
 			sourceTree = "<group>";
 		};
+		501F23AF4F8FFCC78E994836 /* Account */ = {
+			isa = PBXGroup;
+			children = (
+				5E67EF32A3313EB3C6597868 /* Account.swift */,
+				73F8175CEF847CC06FD9F171 /* AccountSheet.swift */,
+			);
+			path = Account;
+			sourceTree = "<group>";
+		};
+		56199C9F13DC428A2CA00F92 /* Stock */ = {
+			isa = PBXGroup;
+			children = (
+				F709213C629DB5A0E50FA83A /* great-wave.jpg */,
+				014E293AAF573BD361A4F281 /* starry-night.jpg */,
+				068FEDCE8223BDDE4CEC56A1 /* water-lilies.jpg */,
+			);
+			path = Stock;
+			sourceTree = "<group>";
+		};
 		68D791CAD7788BD7A4047DAB /* Jigsaw */ = {
 			isa = PBXGroup;
 			children = (
 				32751612D6C0071169790A39 /* Assets.xcassets */,
+				E002688F0778B0712F2F060C /* Info.plist */,
+				BA659B86305047ED9B79F98B /* Jigsaw.entitlements */,
+				501F23AF4F8FFCC78E994836 /* Account */,
 				33462C5DFB9F23A026E4BE5B /* App */,
 				CF1ACB43270853678EEBDA92 /* Board */,
+				1FDABE7F5E0A7F45EFC7D731 /* Cloud */,
 				7CA76C0B6248827997E3A345 /* Library */,
 				DBB5C9532AD43AA37CC1DFEB /* Model */,
+				56199C9F13DC428A2CA00F92 /* Stock */,
 			);
 			path = Jigsaw;
 			sourceTree = "<group>";
@@ -74,6 +128,7 @@
 			children = (
 				EF832EC3CFA87F22B7DAEFD8 /* LibraryView.swift */,
 				966A41016FC848187AA48A2C /* NewPuzzleSheet.swift */,
+				38B24FFAFCFB736B4746DDCA /* StockImage.swift */,
 			);
 			path = Library;
 			sourceTree = "<group>";
@@ -139,7 +194,7 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					ECC9DEC2DEC299C27D711A02 = {
-						DevelopmentTeam = TA8P6SGQH2;
+						DevelopmentTeam = UG9L8XZFD7;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -169,6 +224,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				BA05F7DFE70A4099863C528F /* Assets.xcassets in Resources */,
+				66F9470F65E9A3816842F19A /* great-wave.jpg in Resources */,
+				A76AC7623151FC556757845F /* starry-night.jpg in Resources */,
+				7B37ECB9B667A26E974C389E /* water-lilies.jpg in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -179,10 +237,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EE14D9979EB78B0A5B5BCC7B /* Account.swift in Sources */,
+				0EABE19D4EAADE24DDBE32DD /* AccountSheet.swift in Sources */,
+				7D6FEA80632EFA27992EA8FC /* AppDelegate.swift in Sources */,
 				1064A98F529EFBD5896F014E /* BoardScreen.swift in Sources */,
 				CC3F4CBF20F7511AA1AB9693 /* BoardSession.swift in Sources */,
 				399ED80926743DAE0B2C10FB /* BoardView.swift in Sources */,
 				BA5EE4C5448396D993D2E756 /* Click.swift in Sources */,
+				7EFFDA92D5A9799FC6EE28E7 /* CloudSync.swift in Sources */,
 				9EACF0599FFEA8531DB55A11 /* JigsawApp.swift in Sources */,
 				28E4492C5A9E0385525806E7 /* LibraryView.swift in Sources */,
 				ADF46CA6A917D43FB0C8AF07 /* NewPuzzleSheet.swift in Sources */,
@@ -190,6 +252,8 @@
 				5AD0D964039E299A4332A40A /* PuzzleGeometry.swift in Sources */,
 				EFE6D7E62D4C130D177392C9 /* PuzzleRecord.swift in Sources */,
 				2DDDFD088D891C0AF3FFA483 /* PuzzleStore.swift in Sources */,
+				60DE49BA89A7728FE85B2AC8 /* Sharing.swift in Sources */,
+				794EBFDD0EC9F2C422CB862C /* StockImage.swift in Sources */,
 				05182713E8C3DBAD8D1B87B8 /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -202,18 +266,21 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Jigsaw/Jigsaw.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = TA8P6SGQH2;
+				DEVELOPMENT_TEAM = UG9L8XZFD7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Jigsaw/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Jigsaw;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.puzzle-games";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -223,7 +290,7 @@
 				PRODUCT_NAME = Jigsaw;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 2;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -295,18 +362,21 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Jigsaw/Jigsaw.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = TA8P6SGQH2;
+				DEVELOPMENT_TEAM = UG9L8XZFD7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Jigsaw/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Jigsaw;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.puzzle-games";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -316,7 +386,7 @@
 				PRODUCT_NAME = Jigsaw;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 2;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};

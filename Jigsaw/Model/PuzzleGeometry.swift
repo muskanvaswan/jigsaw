@@ -217,15 +217,41 @@ extension PuzzleGeometry {
 
     /// Every piece tossed onto the heap in random order, piled highest in the middle.
     func startingPieces() -> [PieceState] {
-        // Keep each piece's body inside the heap; only knobs may poke out.
-        let spread = heap.insetBy(dx: cellSize.width / 2, dy: cellSize.height / 2)
-        func mound() -> CGFloat { (CGFloat.random(in: 0...1) + CGFloat.random(in: 0...1)) / 2 }
         let stacking = (0..<count).shuffled()
         return (0..<count).map { index in
-            PieceState(x: spread.minX + spread.width * mound(),
-                       y: spread.minY + spread.height * mound(),
-                       placed: false, z: stacking[index])
+            let spot = heapSpot()
+            return PieceState(x: spot.x, y: spot.y, placed: false, z: stacking[index])
         }
+    }
+
+    /// A random spot in the heap, likelier towards its middle. A piece's body stays inside the heap;
+    /// only its knobs may poke out.
+    func heapSpot() -> CGPoint {
+        let spread = heap.insetBy(dx: cellSize.width / 2, dy: cellSize.height / 2)
+        func mound() -> CGFloat { (CGFloat.random(in: 0...1) + CGFloat.random(in: 0...1)) / 2 }
+        return CGPoint(x: spread.minX + spread.width * mound(), y: spread.minY + spread.height * mound())
+    }
+
+    /// Which loose pieces are joined: neighbours lying at the same offset from where they belong.
+    /// Returns a group number for every loose piece, and nil for pieces locked into the board.
+    func groups(_ states: [PieceState]) -> [Int?] {
+        var parent = Array(states.indices)
+        func root(_ i: Int) -> Int {
+            var i = i
+            while parent[i] != i { parent[i] = parent[parent[i]]; i = parent[i] }
+            return i
+        }
+        func offset(_ i: Int) -> CGPoint {
+            let home = home(i)
+            return CGPoint(x: states[i].x - home.x, y: states[i].y - home.y)
+        }
+        for i in states.indices where !states[i].placed {
+            for j in neighbours(of: i) where j > i && !states[j].placed {
+                let a = offset(i), b = offset(j)
+                if abs(a.x - b.x) < 0.5, abs(a.y - b.y) < 0.5 { parent[root(j)] = root(i) }
+            }
+        }
+        return states.indices.map { states[$0].placed ? nil : root($0) }
     }
 
     /// The pieces directly above, below, left and right of `index` in the finished picture.

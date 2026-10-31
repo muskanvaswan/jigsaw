@@ -1,5 +1,6 @@
 import UIKit
 
+@MainActor
 protocol BoardViewDelegate: AnyObject {
     func boardDidChange(_ board: BoardView)
     /// Pieces locked into the board, or joined to a neighbour when the puzzle doesn't snap to the board.
@@ -95,7 +96,7 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
     private let geometry: PuzzleGeometry
     private let renderer: PieceRenderer
     private let table: CGRect
-    /// Pieces lock into their spot on the board; otherwise they only lock to the pieces beside them.
+    /// Pieces lock into their spot on the board as well as to the pieces beside them; otherwise only to each other.
     private(set) var snapsToBoard: Bool
 
     private let world = PassthroughView()
@@ -123,6 +124,11 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
         let start: CGPoint
     }
     private var drags: [ObjectIdentifier: Drag] = [:]
+    /// When each piece last moved, saved with it so collaborators' edits can be merged.
+    private var changedAt: [Double]
+    /// A collaborator's changes that arrived while you were holding a piece.
+    private var pendingRemote: [PieceState]?
+    private var isFinished: Bool
     private var autoScroll: CADisplayLink?
     private var isPeeking = false
 
@@ -134,6 +140,8 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
         self.geometry = renderer.geometry
         self.table = renderer.geometry.table
         self.snapsToBoard = snapsToBoard
+        self.changedAt = states.map { $0.t ?? 0 }
+        self.isFinished = solved
         super.init(frame: .zero)
 
         backgroundColor = .table
@@ -159,35 +167,18 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
         }
         [tray, ghost, placedLayer, finished, looseLayer].forEach(world.addSubview)
 
-        let joined = PuzzleRecord.joined(states)
+        let flat = flatness(states)
         for index in 0..<geometry.count {
             let piece = PieceView(index: index, image: images[index], shape: geometry.localOutline(index),
-                                  size: geometry.frame(index).size, isFlat: states[index].placed || joined[index])
-            piece.center = geometry.home(index)
+                                  size: geometry.frame(index).size, isFlat: flat[index])
             let press = UILongPressGestureRecognizer(target: self, action: #selector(handlePiece(_:)))
             press.minimumPressDuration = 0
             press.allowableMovement = .greatestFiniteMagnitude
             press.delegate = self
             piece.addGestureRecognizer(press)
             pieces.append(piece)
-
-            if states[index].placed {
-                piece.isPlaced = true
-                piece.isUserInteractionEnabled = false
-                placedLayer.addSubview(piece)
-            }
         }
-
-        // Loose pieces sharing a `z` form one group, stacked in `z` order.
-        let loose = Dictionary(grouping: states.indices.filter { !states[$0].placed }) { states[$0].z }
-        for (_, members) in loose.sorted(by: { $0.key < $1.key }) {
-            let group = GroupView()
-            let first = members[0], home = geometry.home(first)
-            group.center = CGPoint(x: states[first].x - home.x, y: states[first].y - home.y)
-            for index in members { group.addSubview(pieces[index]) }
-            group.updateShadow(geometry)
-            looseLayer.addSubview(group)
-        }
+        arrange(states, animated: false)
 
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
         pan.maximumNumberOfTouches = 2
@@ -223,7 +214,94 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
                 states[piece.index] = PieceState(x: home.x + group.center.x, y: home.y + group.center.y, placed: false, z: z)
             }
         }
+        for index in states.indices { states[index].t = changedAt[index] }
         return states
+    }
+
+    /// Shows changes someone else made, sliding pieces to where they put them. Waits while you're
+    /// holding a piece, so nothing jumps out from under your finger.
+    func apply(_ states: [PieceState]) {
+        guard states.count == pieces.count, !isFinished else { return }
+        guard drags.isEmpty else {
+            pendingRemote = states
+            return
+        }
+        arrange(states, animated: true)
+        delegate?.board(self, didProgress: progressCount)
+        if placedLayer.subviews.count == pieces.count {
+            finish()
+        } else if !snapsToBoard, looseLayer.subviews.count == 1, let group = looseLayer.subviews.first as? GroupView {
+            assemble(group)
+        }
+    }
+
+    /// Puts every piece where `states` says, regrouping loose pieces by position. When animated,
+    /// pieces slide from wherever they are now, so changes made by someone else are easy to follow.
+    private func arrange(_ states: [PieceState], animated: Bool) {
+        let before = pieces.map { worldCenter(of: $0) }
+        for case let group as GroupView in looseLayer.subviews { group.removeFromSuperview() }
+
+        for piece in pieces where states[piece.index].placed {
+            piece.isPlaced = true
+            piece.isUserInteractionEnabled = false
+            placedLayer.addSubview(piece)
+            piece.center = animated ? before[piece.index] : geometry.home(piece.index)
+        }
+
+        let groups = geometry.groups(states)
+        let loose = Dictionary(grouping: states.indices.filter { !states[$0].placed }) { groups[$0] ?? $0 }
+        let stacked = loose.values.sorted { a, b in
+            a.map { states[$0].z }.min() ?? 0 < b.map { states[$0].z }.min() ?? 0
+        }
+        for members in stacked {
+            let group = GroupView()
+            let first = members[0], home = geometry.home(first)
+            group.center = CGPoint(x: states[first].x - home.x, y: states[first].y - home.y)
+            for index in members {
+                let piece = pieces[index]
+                piece.isPlaced = false
+                piece.isUserInteractionEnabled = true
+                piece.transform = .identity
+                piece.layer.shadowOpacity = 0
+                group.addSubview(piece)
+                let target = geometry.home(index)
+                piece.center = animated
+                    ? CGPoint(x: before[index].x - group.center.x, y: before[index].y - group.center.y)
+                    : target
+            }
+            group.updateShadow(geometry)
+            looseLayer.addSubview(group)
+        }
+
+        if animated {
+            UIView.animate(withDuration: 0.45, delay: 0, usingSpringWithDamping: 0.9, initialSpringVelocity: 0,
+                           options: [.allowUserInteraction, .beginFromCurrentState]) {
+                for piece in self.pieces { piece.center = self.geometry.home(piece.index) }
+            }
+        }
+        let flat = flatness(states)
+        for piece in pieces { restyle([piece], flat: flat[piece.index]) }
+        changedAt = states.map { $0.t ?? 0 }
+        contentDidChange()
+    }
+
+    /// Pieces in the board or in a group are drawn flat; a lone loose piece keeps its shadow.
+    private func flatness(_ states: [PieceState]) -> [Bool] {
+        let groups = geometry.groups(states)
+        var sizes: [Int: Int] = [:]
+        for group in groups.compactMap({ $0 }) { sizes[group, default: 0] += 1 }
+        return states.indices.map { states[$0].placed || (groups[$0].map { sizes[$0, default: 0] > 1 } ?? false) }
+    }
+
+    private func worldCenter(of piece: PieceView) -> CGPoint {
+        guard let group = piece.superview as? GroupView else { return piece.center }
+        return CGPoint(x: piece.center.x + group.center.x, y: piece.center.y + group.center.y)
+    }
+
+    /// Records that these pieces just moved.
+    private func touch(_ moved: [PieceView]) {
+        let now = Date().timeIntervalSinceReferenceDate
+        for piece in moved { changedAt[piece.index] = now }
     }
 
     private var progressCount: Int {
@@ -253,31 +331,17 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
         delegate?.boardDidChange(self)
     }
 
-    /// Turns pieces locked into the board into loose groups lying exactly where they are, one group
-    /// per run of touching pieces, beneath everything else on the table.
+    /// Turns pieces locked into the board into loose pieces lying exactly where they are, beneath
+    /// everything else. Touching ones share the same offset, so they come out joined.
     private func loosenPlacedPieces() {
-        var seen = Set<Int>()
-        for piece in pieces where piece.isPlaced && !seen.contains(piece.index) {
-            var run: [PieceView] = []
-            var next = [piece.index]
-            seen.insert(piece.index)
-            while let index = next.popLast() {
-                run.append(pieces[index])
-                for neighbour in geometry.neighbours(of: index) where pieces[neighbour].isPlaced && !seen.contains(neighbour) {
-                    seen.insert(neighbour)
-                    next.append(neighbour)
-                }
-            }
-            let group = GroupView()
-            for member in run {
-                member.isPlaced = false
-                member.isUserInteractionEnabled = true
-                group.addSubview(member)
-            }
-            group.updateShadow(geometry)
-            looseLayer.insertSubview(group, at: 0)
-            restyle(run, flat: run.count > 1)
+        let now = Date().timeIntervalSinceReferenceDate
+        var states = pieceStates()
+        for index in states.indices where states[index].placed {
+            states[index].placed = false
+            states[index].z = -1
+            states[index].t = now
         }
+        arrange(states, animated: false)
     }
 
     func setPeeking(_ peeking: Bool) {
@@ -501,6 +565,10 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
             follow(drag)
             updateAutoScroll()
             drop(drag.group)
+            if drags.isEmpty, let remote = pendingRemote {
+                pendingRemote = nil
+                apply(PieceState.merge(pieceStates(), remote))
+            }
         default:
             break
         }
@@ -538,12 +606,9 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
 
     private func drop(_ group: GroupView) {
         setDown(group)
-        if snapsToBoard {
-            if hypot(group.center.x, group.center.y) < reach {
-                place(group)
-            } else {
-                keepOnTable(group)
-            }
+        touch(group.members)
+        if snapsToBoard, hypot(group.center.x, group.center.y) < reach {
+            place(group)
         } else if !join(group) {
             keepOnTable(group)
         }
@@ -551,10 +616,12 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
         delegate?.boardDidChange(self)
     }
 
-    /// Don't let pieces wander off too far from a closed table.
+    /// Don't let pieces wander off too far from a closed table, or from where the other pieces lie.
     private func keepOnTable(_ group: GroupView) {
         guard !geometry.hasOpenTable else { return }
-        let area = table.insetBy(dx: -table.width * 0.1, dy: -table.height * 0.1)
+        var area = table
+        for case let other as GroupView in looseLayer.subviews where other !== group { area = area.union(extent(of: other)) }
+        area = area.insetBy(dx: -table.width * 0.1, dy: -table.height * 0.1)
         let middle = CGPoint(x: extent(of: group).midX, y: extent(of: group).midY)
         let shift = CGPoint(x: min(max(middle.x, area.minX), area.maxX) - middle.x,
                             y: min(max(middle.y, area.minY), area.maxY) - middle.y)
@@ -564,11 +631,94 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
         }
     }
 
+    // MARK: - Spreading out
+
+    /// Lays loose pieces out in rows around the board, none touching another, in random order.
+    /// Pieces on the board and joined groups stay where they are, and are kept clear of.
+    func spreadOut() {
+        let singles = tidyable()
+        guard !singles.isEmpty else { return }
+
+        // Room for a piece with its knobs, plus a little air.
+        let knobs = geometry.unit * 0.34
+        let air = geometry.unit * 0.12
+        let pitch = CGSize(width: geometry.cellSize.width + knobs * 2 + air, height: geometry.cellSize.height + knobs * 2 + air)
+        let board = CGRect(origin: .zero, size: geometry.boardSize)
+        var keepClear = [board.insetBy(dx: -air, dy: -air)]
+        for case let group as GroupView in looseLayer.subviews where group.members.count > 1 || isDragging(group) {
+            keepClear.append(extent(of: group))
+        }
+
+        // Spots on a grid lined up with the board, nearest the board first, so pieces ring it.
+        var radius = Int(max(board.width / pitch.width, board.height / pitch.height) / 2)
+            + Int(Double(singles.count).squareRoot() / 2) + 1
+        var spots: [(point: CGPoint, distance: CGFloat)] = []
+        repeat {
+            spots.removeAll()
+            for row in -radius...radius {
+                for col in -radius...radius {
+                    let point = CGPoint(x: board.midX + CGFloat(col) * pitch.width, y: board.midY + CGFloat(row) * pitch.height)
+                    let footprint = CGRect(x: point.x - pitch.width / 2, y: point.y - pitch.height / 2,
+                                           width: pitch.width, height: pitch.height)
+                    guard !keepClear.contains(where: { $0.intersects(footprint) }) else { continue }
+                    let dx = max(board.minX - point.x, 0, point.x - board.maxX)
+                    let dy = max(board.minY - point.y, 0, point.y - board.maxY)
+                    spots.append((point, hypot(dx, dy)))
+                }
+            }
+            radius += 2
+        } while spots.count < singles.count && radius < 400
+        spots.sort { $0.distance < $1.distance }
+
+        move(singles, to: spots.prefix(singles.count).map(\.point))
+    }
+
+    /// Sweeps loose pieces back into a heap below the board, in a new random order.
+    /// Pieces on the board and joined groups stay where they are.
+    func heapUp() {
+        let singles = tidyable()
+        guard !singles.isEmpty else { return }
+        for group in singles { looseLayer.bringSubviewToFront(group) }
+        move(singles, to: singles.map { _ in geometry.heapSpot() })
+    }
+
+    /// Lone loose pieces that spreading out or heaping up may move, in random order. Anything lying
+    /// on the board is left alone, along with joined groups and pieces in someone's hand.
+    private func tidyable() -> [GroupView] {
+        let board = CGRect(origin: .zero, size: geometry.boardSize)
+        return looseLayer.subviews
+            .compactMap { $0 as? GroupView }
+            .filter { group in
+                guard group.members.count == 1, let piece = group.members.first, !isDragging(group) else { return false }
+                return !board.contains(worldCenter(of: piece))
+            }
+            .shuffled()
+    }
+
+    /// Slides lone pieces to new spots one after another, then steps back to show everything.
+    private func move(_ singles: [GroupView], to spots: [CGPoint]) {
+        touch(singles.flatMap(\.members))
+        for (index, (group, spot)) in zip(singles, spots).enumerated() {
+            guard let piece = group.members.first else { continue }
+            let home = geometry.home(piece.index)
+            UIView.animate(withDuration: 0.5, delay: Double(index) / Double(singles.count) * 0.35,
+                           usingSpringWithDamping: 0.9, initialSpringVelocity: 0,
+                           options: [.allowUserInteraction, .beginFromCurrentState]) {
+                group.center = CGPoint(x: spot.x - home.x, y: spot.y - home.y)
+            }
+        }
+        contentDidChange()
+        let fit = fitScale(in: bounds.size)
+        animateCamera(to: fit, offset: clampedOffset(centered(on: contentRect, scale: fit), scale: fit))
+        delegate?.boardDidChange(self)
+    }
+
     // MARK: - Snapping into the board
 
     /// Locks a group (usually a single piece) into its spot on the board.
     private func place(_ group: GroupView) {
         let members = group.members
+        touch(members)
         for piece in members {
             piece.isPlaced = true
             piece.isUserInteractionEnabled = false
@@ -632,6 +782,7 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
     private func absorb(_ moving: GroupView, into target: GroupView) {
         let shift = CGPoint(x: moving.center.x - target.center.x, y: moving.center.y - target.center.y)
         let arriving = moving.members
+        touch(arriving)
         for piece in arriving {
             target.addSubview(piece)
             piece.center.x += shift.x
@@ -656,6 +807,7 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
         UIView.animate(withDuration: 0.9, delay: 0.3, usingSpringWithDamping: 1, initialSpringVelocity: 0, options: []) {
             group.center = .zero
         } completion: { _ in
+            self.touch(group.members)
             for piece in group.members {
                 piece.isPlaced = true
                 piece.isUserInteractionEnabled = false
@@ -682,6 +834,8 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
     }
 
     private func finish() {
+        guard !isFinished else { return }
+        isFinished = true
         UIView.animate(withDuration: 1.2, delay: 0.35, options: [.curveEaseInOut]) {
             self.finished.alpha = 1
             self.ghost.alpha = 0

@@ -1,13 +1,27 @@
 import CoreGraphics
 import Foundation
 
-/// Where one piece is. Loose pieces keep their table position; `z` is their stacking order,
-/// and loose pieces that share a `z` have been joined into one group.
+/// Where one piece is. Loose pieces keep their table position and `z` is their stacking order.
+/// Joined pieces need no extra bookkeeping: they lie at exactly the same offset from where they belong.
 struct PieceState: Codable, Equatable {
     var x: Double
     var y: Double
     var placed: Bool
     var z: Int
+    /// When the piece last moved (seconds since 2001), so two people's edits can be merged piece by piece.
+    var t: Double?
+
+    /// Two versions of the same puzzle combined: for every piece, whichever moved last wins.
+    static func merge(_ mine: [PieceState], _ theirs: [PieceState]) -> [PieceState] {
+        guard mine.count == theirs.count else { return theirs.isEmpty ? mine : theirs }
+        return zip(mine, theirs).map { ($1.t ?? 0) > ($0.t ?? 0) ? $1 : $0 }
+    }
+
+    /// Whether `newer` holds any move that `older` hasn't seen.
+    static func hasNewer(_ newer: [PieceState], than older: [PieceState]) -> Bool {
+        guard newer.count == older.count else { return !newer.isEmpty }
+        return zip(newer, older).contains { ($0.t ?? 0) > ($1.t ?? 0) }
+    }
 }
 
 /// Everything saved about a puzzle besides its photo.
@@ -26,6 +40,10 @@ struct PuzzleRecord: Codable, Identifiable, Equatable {
     /// Whether pieces lock into their spot on the board, or only to the pieces beside them.
     /// Puzzles saved before this was a choice have no value and snap to the board.
     var snapToBoard: Bool?
+    /// Set once the puzzle is shared through iCloud.
+    var cloud: CloudLink?
+    /// Whether loose pieces were last laid out in rows rather than heaped up.
+    var spreadOut: Bool?
 
     var snapsToBoard: Bool { snapToBoard ?? true }
     var pieceCount: Int { rows * cols }
@@ -33,7 +51,10 @@ struct PuzzleRecord: Codable, Identifiable, Equatable {
 
     /// Pieces that are done: locked into the board, or joined to at least one neighbour.
     var finishedPieces: [Bool] {
-        zip(pieces, Self.joined(pieces)).map { $0.placed || $1 }
+        let groups = geometry.groups(pieces)
+        var sizes: [Int: Int] = [:]
+        for group in groups.compactMap({ $0 }) { sizes[group, default: 0] += 1 }
+        return pieces.indices.map { pieces[$0].placed || (groups[$0].map { sizes[$0, default: 0] > 1 } ?? false) }
     }
 
     var progressCount: Int { finishedPieces.reduce(0) { $0 + ($1 ? 1 : 0) } }
@@ -41,12 +62,5 @@ struct PuzzleRecord: Codable, Identifiable, Equatable {
 
     var geometry: PuzzleGeometry {
         PuzzleGeometry(rows: rows, cols: cols, boardSize: CGSize(width: boardWidth, height: boardHeight), seed: seed)
-    }
-
-    /// Loose pieces that are part of a group of two or more.
-    static func joined(_ pieces: [PieceState]) -> [Bool] {
-        var sizes: [Int: Int] = [:]
-        for piece in pieces where !piece.placed { sizes[piece.z, default: 0] += 1 }
-        return pieces.map { !$0.placed && sizes[$0.z, default: 0] > 1 }
     }
 }
