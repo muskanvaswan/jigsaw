@@ -1,0 +1,16 @@
+# Build output (local command-line builds use build/ as derived data)
+build/
+DerivedData/
+
+# Xcode per-user state
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+# Swift Package Manager
+.swiftpm/
+.build/
+
+# macOS
+.DS_Store
