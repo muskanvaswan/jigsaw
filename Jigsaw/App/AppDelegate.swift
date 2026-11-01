@@ -21,6 +21,12 @@ final class SceneDelegate: NSObject, UIWindowSceneDelegate {
             windowScene.sizeRestrictions?.minimumSize = CGSize(width: 760, height: 560)
             windowScene.titlebar?.titleVisibility = .hidden
             windowScene.titlebar?.toolbar = nil
+            #if DEBUG
+            if let size = DebugLaunch.windowSize {
+                windowScene.sizeRestrictions?.minimumSize = size
+                windowScene.sizeRestrictions?.maximumSize = size
+            }
+            #endif
         }
         #endif
     }

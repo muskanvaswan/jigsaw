@@ -28,6 +28,7 @@
 		BA05F7DFE70A4099863C528F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 32751612D6C0071169790A39 /* Assets.xcassets */; };
 		BA5EE4C5448396D993D2E756 /* Click.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A769D024D02E722B5786DE5 /* Click.swift */; };
 		CC3F4CBF20F7511AA1AB9693 /* BoardSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B41A3FCC9AFEF7B47E77A48 /* BoardSession.swift */; };
+		E9EF7A850C9F798ADFB82A5C /* DebugLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = A017DE3B66AD4C79C4DD07D2 /* DebugLaunch.swift */; };
 		EE14D9979EB78B0A5B5BCC7B /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E67EF32A3313EB3C6597868 /* Account.swift */; };
 		EFE6D7E62D4C130D177392C9 /* PuzzleRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 764B9DE41E2A42BA1952AFF4 /* PuzzleRecord.swift */; };
 /* End PBXBuildFile section */
@@ -50,6 +51,7 @@
 		7B41A3FCC9AFEF7B47E77A48 /* BoardSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardSession.swift; sourceTree = "<group>"; };
 		7DDC2DC63811CA5D403C13AF /* Sharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sharing.swift; sourceTree = "<group>"; };
 		966A41016FC848187AA48A2C /* NewPuzzleSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewPuzzleSheet.swift; sourceTree = "<group>"; };
+		A017DE3B66AD4C79C4DD07D2 /* DebugLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLaunch.swift; sourceTree = "<group>"; };
 		B5B622DD77BA4045CD65D101 /* PieceRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PieceRenderer.swift; sourceTree = "<group>"; };
 		BA659B86305047ED9B79F98B /* Jigsaw.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Jigsaw.entitlements; sourceTree = "<group>"; };
 		BAC8BD3D8CB37126B26F735A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -75,6 +77,7 @@
 			isa = PBXGroup;
 			children = (
 				BAC8BD3D8CB37126B26F735A /* AppDelegate.swift */,
+				A017DE3B66AD4C79C4DD07D2 /* DebugLaunch.swift */,
 				02439165B3197A8883D8DD69 /* JigsawApp.swift */,
 				100A3ED197684602F6B4D885 /* Theme.swift */,
 			);
@@ -249,6 +252,7 @@
 				399ED80926743DAE0B2C10FB /* BoardView.swift in Sources */,
 				BA5EE4C5448396D993D2E756 /* Click.swift in Sources */,
 				7EFFDA92D5A9799FC6EE28E7 /* CloudSync.swift in Sources */,
+				E9EF7A850C9F798ADFB82A5C /* DebugLaunch.swift in Sources */,
 				9EACF0599FFEA8531DB55A11 /* JigsawApp.swift in Sources */,
 				28E4492C5A9E0385525806E7 /* LibraryView.swift in Sources */,
 				ADF46CA6A917D43FB0C8AF07 /* NewPuzzleSheet.swift in Sources */,

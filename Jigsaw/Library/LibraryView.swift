@@ -40,6 +40,13 @@ struct LibraryView: View {
         .overlay(alignment: .top) {
             if store.puzzles.isEmpty { header }
         }
+        #if DEBUG
+        .onAppear {
+            if let id = DebugLaunch.newPuzzle, let stock = StockImage.all.first(where: { $0.id == id }) {
+                draft = Draft(photo: stock.photo())
+            }
+        }
+        #endif
         .sheet(item: $draft) { draft in
             NewPuzzleSheet(photo: draft.photo) { photo, rows, cols, seed, snapToBoard in
                 start(photo, rows: rows, cols: cols, seed: seed, snapToBoard: snapToBoard)

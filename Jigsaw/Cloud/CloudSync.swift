@@ -394,6 +394,50 @@ final class CloudSync {
         record["restartedAt"] = clock.restartedAt
     }
 
+    #if DEBUG
+    /// Saves one record of every type, with every field, then deletes them, so the development schema is
+    /// complete before it's deployed to production. Run a debug build with -SeedCloudKitSchema.
+    func seedSchema() async throws {
+        guard await isAvailable else { throw CloudError.unavailable }
+        let db = container.privateCloudDatabase
+        let zone = CKRecordZone(zoneName: "schema-seed")
+        _ = try await db.modifyRecordZones(saving: [zone], deleting: [])
+        let id = { CKRecord.ID(recordName: $0, zoneID: zone.zoneID) }
+        let photo = FileManager.default.temporaryDirectory.appendingPathComponent("seed.jpg")
+        try Data([0xFF, 0xD8, 0xFF, 0xD9]).write(to: photo)
+
+        let cut = CKRecord(recordType: "Puzzle", recordID: id("puzzle"))
+        cut["rows"] = 1
+        cut["cols"] = 1
+        cut["seed"] = Int64(1)
+        cut["boardWidth"] = 1.0
+        cut["boardHeight"] = 1.0
+        cut["createdAt"] = Date()
+        cut["photo"] = CKAsset(fileURL: photo)
+        let board = CKRecord(recordType: "Board", recordID: id("board"))
+        board["pieces"] = Data([0])
+        board["snapToBoard"] = 1
+        board["solvedAt"] = Date()
+        board["playTime"] = 1.0
+        board["restartedAt"] = Date()
+        let player = CKRecord(recordType: "Player", recordID: id("player"))
+        player["name"] = "Seed"
+        player["seenAt"] = Date()
+        let preferences = CKRecord(recordType: "Preferences", recordID: id("preferences"))
+        preferences["syncAll"] = 1
+        preferences["name"] = "Seed"
+        let deleted = CKRecord(recordType: "Deleted", recordID: id("deleted"))
+        deleted["deletedAt"] = Date()
+
+        let results = try await db.modifyRecords(saving: [cut, board, player, preferences, deleted], deleting: [], savePolicy: .allKeys)
+            .saveResults
+        for (recordID, result) in results {
+            if case .failure(let error) = result { throw NSError(domain: recordID.recordName, code: 0, userInfo: [NSUnderlyingErrorKey: error]) }
+        }
+        _ = try await db.modifyRecordZones(saving: [], deleting: [zone.zoneID])
+    }
+    #endif
+
     private static func pieces(of record: CKRecord) -> [PieceState]? {
         guard let packed = record["pieces"] as? Data,
               let json = try? (packed as NSData).decompressed(using: .lzfse) as Data else { return nil }

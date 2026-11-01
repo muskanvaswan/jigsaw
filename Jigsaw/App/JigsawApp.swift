@@ -8,6 +8,22 @@ struct JigsawApp: App {
 
     init() {
         Click.prepare()
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-SeedCloudKitSchema") {
+            Task { @MainActor in
+                let result: String
+                do {
+                    try await CloudSync.shared.seedSchema()
+                    result = "Seeded the CloudKit schema."
+                } catch {
+                    result = "Couldn't seed the CloudKit schema: \(error)"
+                }
+                let log = FileManager.default.temporaryDirectory.appendingPathComponent("seed-result.txt")
+                try? result.write(to: log, atomically: true, encoding: .utf8)
+                exit(0)
+            }
+        }
+        #endif
     }
 
     var body: some Scene {
@@ -16,6 +32,9 @@ struct JigsawApp: App {
                 .environment(store)
                 .environment(account)
                 .tint(Color("AccentColor"))
+                #if DEBUG
+                .preferredColorScheme(DebugLaunch.appearance)
+                #endif
         }
     }
 }
@@ -49,6 +68,10 @@ struct RootView: View {
         .onAppear {
             acceptInvitation()
             catchUp()
+            #if DEBUG
+            if let id = DebugLaunch.openPuzzle { openPuzzle = id }
+            DebugLaunch.takeScreenshotSoon()
+            #endif
         }
         .onChange(of: invitations.pending.count) { _, _ in acceptInvitation() }
         .onChange(of: account.isSignedIn) { _, _ in catchUp() }
@@ -83,6 +106,9 @@ struct RootView: View {
     /// Brings the library up to date with iCloud, and puts new puzzles there when signed in.
     /// Only bothers iCloud for people who sign in or share.
     private func catchUp() {
+        #if DEBUG
+        guard !DebugLaunch.isScreenshotting else { return }
+        #endif
         guard account.isSignedIn || store.puzzles.contains(where: { $0.cloud != nil }) else { return }
         let open = openPuzzle, signedIn = account.isSignedIn
         Task { await store.catchUp(signedIn: signedIn, except: open) }
