@@ -48,7 +48,7 @@ enum CloudError: LocalizedError {
 final class CloudSync {
     static let shared = CloudSync()
 
-    let container = CKContainer(identifier: "iCloud.com.muskanvaswan.jigsaw")
+    let container = CKContainer(identifier: "iCloud.com.vaswan.jigsaw")
 
     /// The newest known copy of each puzzle's board, so saves don't trip over our own earlier saves.
     private var boards: [String: CKRecord] = [:]

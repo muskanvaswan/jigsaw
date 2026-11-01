@@ -1,6 +1,6 @@
 name: Jigsaw
 options:
-  bundleIdPrefix: com.muskanvaswan
+  bundleIdPrefix: com.vaswan
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
@@ -16,14 +16,14 @@ targets:
       properties:
         com.apple.developer.applesignin: [Default]
         com.apple.developer.icloud-services: [CloudKit]
-        com.apple.developer.icloud-container-identifiers: [iCloud.com.muskanvaswan.jigsaw]
+        com.apple.developer.icloud-container-identifiers: [iCloud.com.vaswan.jigsaw]
     info:
       path: Jigsaw/Info.plist
       properties:
         CKSharingSupported: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.muskanvaswan.jigsaw
+        PRODUCT_BUNDLE_IDENTIFIER: com.vaswan.jigsaw
         PRODUCT_NAME: Jigsaw
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: UG9L8XZFD7

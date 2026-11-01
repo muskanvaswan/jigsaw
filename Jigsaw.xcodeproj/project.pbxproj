@@ -286,7 +286,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.muskanvaswan.jigsaw;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vaswan.jigsaw;
 				PRODUCT_NAME = Jigsaw;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
@@ -382,7 +382,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.muskanvaswan.jigsaw;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vaswan.jigsaw;
 				PRODUCT_NAME = Jigsaw;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
