@@ -188,6 +188,8 @@ final class CloudSync {
     func remove(_ link: CloudLink) async {
         if link.isOwner {
             let note = CKRecord(recordType: "Deleted", recordID: Self.deletedID(link.zoneName))
+            // CloudKit won't deploy a record type without fields of its own.
+            note["deletedAt"] = Date()
             _ = try? await container.privateCloudDatabase.modifyRecords(saving: [note], deleting: [], savePolicy: .allKeys)
             await takeOut(link)
         } else {
