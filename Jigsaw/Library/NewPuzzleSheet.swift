@@ -45,10 +45,13 @@ struct PhotoSources: View {
     @State private var isImporting = false
     @State private var isLoading = false
 
+    /// Phones pick pictures from Photos; iPads and Macs also keep them in folders.
+    private let offersFiles = UIDevice.current.userInterfaceIdiom != .phone
+
     var body: some View {
-        // Five across on iPad and Mac, two by two on a phone.
-        let compact = sizeClass == .compact
-        let columns = Array(repeating: GridItem(.flexible(), spacing: 16, alignment: .top), count: compact ? 2 : 5)
+        // Everything in one row when there's room; in a narrow sheet, two or three across.
+        let count = sizeClass == .compact ? (offersFiles ? 3 : 2) : (offersFiles ? 5 : 4)
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 16, alignment: .top), count: count)
         LazyVGrid(columns: columns, spacing: 20) {
             PhotosPicker(selection: $pickedItem, matching: .images) {
                 tile(title: "Your Photos", subtitle: "Any picture") {
@@ -67,7 +70,7 @@ struct PhotoSources: View {
             .buttonStyle(.plain)
             .disabled(isLoading)
 
-            if !compact {
+            if offersFiles {
                 Button { isImporting = true } label: {
                     tile(title: "Files", subtitle: "From a folder") {
                         ZStack {
@@ -217,7 +220,7 @@ private struct CutStep: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .tint(.accentColor)
+            .tint(Color("AccentColor"))
             .frame(maxWidth: 420)
 
             Button {

@@ -102,6 +102,7 @@ struct AccountSheet: View {
                     if isSwitchingSync { ProgressView() }
                 }
             }
+            .tint(Color("AccentColor"))
             .disabled(isSwitchingSync)
             Text(syncFailure ?? (store.syncsAll ? "Your puzzles and progress follow you to your other devices."
                                  : "Puzzles stay on the device they're on. Shared puzzles still sync."))
