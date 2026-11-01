@@ -51,7 +51,8 @@ enum CloudError: LocalizedError {
 
 /// Keeps puzzles in iCloud. Each one is a record zone (shared as a whole with everyone invited, if anyone is)
 /// holding the photo and cut ("Puzzle"), where every piece is ("Board"), and one "Player" record per person.
-/// The private database's default zone holds whether to sync every puzzle ("Preferences"), and a "Deleted"
+/// The private database's default zone holds your settings ("Preferences": whether to sync every puzzle, and
+/// your name for solving together), and a "Deleted"
 /// note for each puzzle deleted, so your other devices can tell that apart from sync being switched off.
 @MainActor
 final class CloudSync {
@@ -237,8 +238,9 @@ final class CloudSync {
 
     private static func deletedID(_ zoneName: String) -> CKRecord.ID { CKRecord.ID(recordName: "deleted-" + zoneName) }
 
-    // MARK: - Syncing every puzzle
+    // MARK: - Preferences
 
+    /// One record for all your devices. Each setting is saved on its own, leaving the others as they are.
     private static let preferencesID = CKRecord.ID(recordName: "preferences")
 
     /// Whether every puzzle should go to iCloud. One setting for all your devices. Nil when iCloud can't say.
@@ -257,9 +259,25 @@ final class CloudSync {
         guard await isAvailable else { throw CloudError.unavailable }
         let record = CKRecord(recordType: "Preferences", recordID: Self.preferencesID)
         record["syncAll"] = on ? 1 : 0
-        let saved = try await container.privateCloudDatabase.modifyRecords(saving: [record], deleting: [], savePolicy: .allKeys)
+        let saved = try await container.privateCloudDatabase.modifyRecords(saving: [record], deleting: [], savePolicy: .changedKeys)
             .saveResults[record.recordID]
         if case .failure(let error) = saved { throw error }
+    }
+
+    /// The name you go by when solving together, as last saved from any of your devices. Nil if none was.
+    func savedName() async throws -> String? {
+        do {
+            let record = try await container.privateCloudDatabase.record(for: Self.preferencesID)
+            return (record["name"] as? String)?.nilIfEmpty
+        } catch let error as CKError where error.code == .unknownItem {
+            return nil
+        }
+    }
+
+    func saveName(_ name: String) async {
+        let record = CKRecord(recordType: "Preferences", recordID: Self.preferencesID)
+        record["name"] = name
+        _ = try? await container.privateCloudDatabase.modifyRecords(saving: [record], deleting: [], savePolicy: .changedKeys)
     }
 
     // MARK: - Syncing

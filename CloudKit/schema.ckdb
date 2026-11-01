@@ -50,6 +50,7 @@ DEFINE SCHEMA
         "___modTime"    TIMESTAMP,
         "___modifiedBy" REFERENCE,
         "___recordID"   REFERENCE QUERYABLE,
+        name            STRING,
         syncAll         INT64,
         GRANT WRITE TO "_creator",
         GRANT CREATE TO "_icloud",

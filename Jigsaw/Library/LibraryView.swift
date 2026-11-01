@@ -36,6 +36,10 @@ struct LibraryView: View {
                     .chromeBackground(Circle())
             }
         }
+        // Signing in is how puzzles from your other devices arrive, so it's there before there are any here.
+        .overlay(alignment: .top) {
+            if store.puzzles.isEmpty { header }
+        }
         .sheet(item: $draft) { draft in
             NewPuzzleSheet(photo: draft.photo) { photo, rows, cols, seed, snapToBoard in
                 start(photo, rows: rows, cols: cols, seed: seed, snapToBoard: snapToBoard)
@@ -87,22 +91,7 @@ struct LibraryView: View {
     private var library: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 30) {
-                HStack {
-                    Spacer()
-                    AccountButton { showingAccount = true }
-                    Button { draft = Draft(photo: nil) } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 19, weight: .medium))
-                            .foregroundStyle(Color.primary)
-                            .frame(width: 48, height: 48)
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .chromeBackground(Circle())
-                    .keyboardShortcut("n")
-                    .accessibilityLabel("New puzzle")
-                }
-
+                header
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 230, maximum: 340), spacing: gutter * 0.6)], spacing: 34) {
                     ForEach(store.puzzles) { puzzle in
                         Button { open(puzzle.id) } label: {
@@ -116,11 +105,33 @@ struct LibraryView: View {
                         }
                     }
                 }
+                .padding(.horizontal, gutter)
             }
-            .padding(.horizontal, gutter)
-            .padding(.top, 36)
             .padding(.bottom, 60)
         }
+    }
+
+    /// Your account, and a new puzzle once there's a library to add it to.
+    private var header: some View {
+        HStack {
+            Spacer()
+            AccountButton { showingAccount = true }
+            if !store.puzzles.isEmpty {
+                Button { draft = Draft(photo: nil) } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 19, weight: .medium))
+                        .foregroundStyle(Color.primary)
+                        .frame(width: 48, height: 48)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .chromeBackground(Circle())
+                .keyboardShortcut("n")
+                .accessibilityLabel("New puzzle")
+            }
+        }
+        .padding(.horizontal, gutter)
+        .padding(.top, 36)
     }
 
     private var emptyState: some View {

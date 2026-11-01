@@ -1,7 +1,9 @@
 import AuthenticationServices
 import Observation
 
-/// Who is playing, from Sign in with Apple. Collaborators see this name in shared puzzles.
+/// Who is playing, from Sign in with Apple. Collaborators see this name in shared puzzles. Apple only shares
+/// the name the very first time someone signs in to the app, so it's also kept in iCloud for every other
+/// device (and every later sign-in) to pick up.
 @Observable
 final class Account {
     private(set) var userID: String?
@@ -17,6 +19,7 @@ final class Account {
         userID = UserDefaults.standard.string(forKey: Self.userIDKey)
         name = UserDefaults.standard.string(forKey: Self.nameKey)
         verify()
+        syncName()
     }
 
     /// Signs out if this Apple ID has been disconnected from the app in Settings.
@@ -28,18 +31,35 @@ final class Account {
         }
     }
 
-    /// Apple only shares the person's name the first time they sign in, so keep the one we have after that.
     func signedIn(with credential: ASAuthorizationAppleIDCredential) {
         userID = credential.user
         if let parts = credential.fullName, let given = PersonNameComponentsFormatter.localizedString(from: parts, style: .default).nilIfEmpty {
             name = given
         }
         save()
+        syncName()
     }
 
     func rename(_ newName: String) {
         name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         save()
+        if let name = name?.nilIfEmpty { Task { await CloudSync.shared.saveName(name) } }
+    }
+
+    /// Fills in the name from iCloud when this device doesn't know it, or puts this device's in iCloud
+    /// when nobody has yet.
+    private func syncName() {
+        guard isSignedIn else { return }
+        Task { @MainActor in
+            let saved: String?
+            do { saved = try await CloudSync.shared.savedName() } catch { return }
+            if let mine = name?.nilIfEmpty {
+                if saved == nil { await CloudSync.shared.saveName(mine) }
+            } else if let saved, isSignedIn {
+                name = saved
+                save()
+            }
+        }
     }
 
     func signOut() {

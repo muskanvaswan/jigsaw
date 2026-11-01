@@ -46,9 +46,9 @@ struct AccountSheet: View {
                     .padding(.top, 8)
             } else {
                 VStack(spacing: 6) {
-                    Text("Solve together")
+                    Text("Sign in")
                         .font(.title2.weight(.semibold))
-                    Text("Sign in to share puzzles and solve them with friends and family, at the same time or whenever suits you.")
+                    Text("Your puzzles follow you to your other devices, and you can solve them with friends and family, at the same time or whenever suits you.")
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: 380)
@@ -79,6 +79,10 @@ struct AccountSheet: View {
         .padding(32)
         .background(Color.table)
         .onAppear { name = account.name ?? "" }
+        // The name can arrive from iCloud a moment after signing in.
+        .onChange(of: account.name) { _, saved in
+            if name.isEmpty { name = saved ?? "" }
+        }
         .onDisappear { if account.isSignedIn, name != (account.name ?? "") { account.rename(name) } }
         .alert("Turn off iCloud sync?", isPresented: $confirmingSyncOff) {
             Button("Turn Off", role: .destructive) { setSync(false) }
