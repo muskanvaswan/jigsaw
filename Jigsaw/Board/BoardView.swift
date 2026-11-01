@@ -488,13 +488,18 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
         case .changed:
             let move = pan.translation(in: self)
             pan.setTranslation(.zero, in: self)
+            // With a mouse, ⌘-scrolling zooms, the way pinching does on a trackpad.
+            if pan.modifierFlags.contains(.command) {
+                zoom(by: exp(-move.y / 240), around: pan.location(in: self))
+                return
+            }
             // Resist being dragged past the edge.
             let limit = clampedOffset(offset, scale: scale)
             offset.x += (offset.x - limit.x) * move.x > 0 ? move.x * 0.35 : move.x
             offset.y += (offset.y - limit.y) * move.y > 0 ? move.y * 0.35 : move.y
             applyCamera()
         case .ended:
-            throwVelocity = pan.velocity(in: self)
+            throwVelocity = pan.modifierFlags.contains(.command) ? .zero : pan.velocity(in: self)
             endCameraGesture()
         case .cancelled, .failed:
             endCameraGesture()
@@ -508,18 +513,23 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
         case .began:
             beginCameraGesture()
         case .changed:
-            let focus = pinch.location(in: self)
-            let next = min(max(scale * pinch.scale, minScale * 0.8), maxScale * 1.25)
-            offset = CGPoint(x: focus.x - (focus.x - offset.x) * next / scale, y: focus.y - (focus.y - offset.y) * next / scale)
-            scale = next
-            zoomFocus = focus
+            zoom(by: pinch.scale, around: pinch.location(in: self))
             pinch.scale = 1
-            applyCamera()
         case .ended, .cancelled, .failed:
             endCameraGesture()
         default:
             break
         }
+    }
+
+    /// Zooms by `factor`, keeping the spot under `focus` where it is. A little past the limits is
+    /// allowed while the gesture lasts, and springs back when it ends.
+    private func zoom(by factor: CGFloat, around focus: CGPoint) {
+        let next = min(max(scale * factor, minScale * 0.8), maxScale * 1.25)
+        offset = CGPoint(x: focus.x - (focus.x - offset.x) * next / scale, y: focus.y - (focus.y - offset.y) * next / scale)
+        scale = next
+        zoomFocus = focus
+        applyCamera()
     }
 
     /// Zooms in on the tapped spot, or back out to everything on the table.

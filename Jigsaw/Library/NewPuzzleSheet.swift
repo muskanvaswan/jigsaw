@@ -37,16 +37,18 @@ struct NewPuzzleSheet: View {
     }
 }
 
-/// Your own photos, or one of the paintings that ship with the app.
+/// Your own photos (or, on iPad and Mac, any picture in Files), or one of the paintings that ship with the app.
 struct PhotoSources: View {
     let pick: (UIImage) -> Void
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var pickedItem: PhotosPickerItem?
+    @State private var isImporting = false
     @State private var isLoading = false
 
     var body: some View {
-        // Four across on iPad, two by two on a phone.
-        let columns = Array(repeating: GridItem(.flexible(), spacing: 16, alignment: .top), count: sizeClass == .compact ? 2 : 4)
+        // Five across on iPad and Mac, two by two on a phone.
+        let compact = sizeClass == .compact
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 16, alignment: .top), count: compact ? 2 : 5)
         LazyVGrid(columns: columns, spacing: 20) {
             PhotosPicker(selection: $pickedItem, matching: .images) {
                 tile(title: "Your Photos", subtitle: "Any picture") {
@@ -64,6 +66,21 @@ struct PhotoSources: View {
             }
             .buttonStyle(.plain)
             .disabled(isLoading)
+
+            if !compact {
+                Button { isImporting = true } label: {
+                    tile(title: "Files", subtitle: "From a folder") {
+                        ZStack {
+                            Color.tray
+                            Image(systemName: "folder")
+                                .font(.system(size: 30, weight: .light))
+                                .foregroundStyle(Color.primary)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(isLoading)
+            }
 
             ForEach(StockImage.all) { stock in
                 Button {
@@ -83,6 +100,14 @@ struct PhotoSources: View {
             Task {
                 guard let data = try? await item.loadTransferable(type: Data.self) else { return }
                 load { UIImage(data: data).map { PhotoPrep.prepare($0, longSide: 3200) } }
+            }
+        }
+        .fileImporter(isPresented: $isImporting, allowedContentTypes: [.image]) { result in
+            guard case .success(let url) = result else { return }
+            load {
+                let granted = url.startAccessingSecurityScopedResource()
+                defer { if granted { url.stopAccessingSecurityScopedResource() } }
+                return UIImage(contentsOfFile: url.path).map { PhotoPrep.prepare($0, longSide: 3200) }
             }
         }
     }

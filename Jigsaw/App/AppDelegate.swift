@@ -15,6 +15,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 final class SceneDelegate: NSObject, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options: UIScene.ConnectionOptions) {
         if let metadata = options.cloudKitShareMetadata { Invitations.shared.received(metadata) }
+        #if targetEnvironment(macCatalyst)
+        // On a Mac: a plain window with nothing but the puzzles in it, never too small to solve in.
+        if let windowScene = scene as? UIWindowScene {
+            windowScene.sizeRestrictions?.minimumSize = CGSize(width: 760, height: 560)
+            windowScene.titlebar?.titleVisibility = .hidden
+            windowScene.titlebar?.toolbar = nil
+        }
+        #endif
     }
 
     func windowScene(_ windowScene: UIWindowScene, userDidAcceptCloudKitShareWith metadata: CKShare.Metadata) {

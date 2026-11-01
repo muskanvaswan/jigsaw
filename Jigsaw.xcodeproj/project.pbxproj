@@ -14,6 +14,7 @@
 		2DDDFD088D891C0AF3FFA483 /* PuzzleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44A5CC01E7A3F84AD4B9036C /* PuzzleStore.swift */; };
 		399ED80926743DAE0B2C10FB /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B41DDA88501ADBF163A66FA /* BoardView.swift */; };
 		39A62C768E47D3AB230D2187 /* PieceRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B622DD77BA4045CD65D101 /* PieceRenderer.swift */; };
+		490F2537B8D212F8A650292A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = DD7BE5D6FC3749467BF82D75 /* PrivacyInfo.xcprivacy */; };
 		5AD0D964039E299A4332A40A /* PuzzleGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 082828929158510F69ADF369 /* PuzzleGeometry.swift */; };
 		60DE49BA89A7728FE85B2AC8 /* Sharing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DDC2DC63811CA5D403C13AF /* Sharing.swift */; };
 		66F9470F65E9A3816842F19A /* great-wave.jpg in Resources */ = {isa = PBXBuildFile; fileRef = F709213C629DB5A0E50FA83A /* great-wave.jpg */; };
@@ -54,6 +55,7 @@
 		BAC8BD3D8CB37126B26F735A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		C75B9426D47BC0C72F226B87 /* CloudSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSync.swift; sourceTree = "<group>"; };
 		DB2A65C8C297C49F2805097C /* BoardScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardScreen.swift; sourceTree = "<group>"; };
+		DD7BE5D6FC3749467BF82D75 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		E002688F0778B0712F2F060C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		EF832EC3CFA87F22B7DAEFD8 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		F709213C629DB5A0E50FA83A /* great-wave.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "great-wave.jpg"; sourceTree = "<group>"; };
@@ -112,6 +114,7 @@
 				32751612D6C0071169790A39 /* Assets.xcassets */,
 				E002688F0778B0712F2F060C /* Info.plist */,
 				BA659B86305047ED9B79F98B /* Jigsaw.entitlements */,
+				DD7BE5D6FC3749467BF82D75 /* PrivacyInfo.xcprivacy */,
 				501F23AF4F8FFCC78E994836 /* Account */,
 				33462C5DFB9F23A026E4BE5B /* App */,
 				CF1ACB43270853678EEBDA92 /* Board */,
@@ -224,6 +227,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BA05F7DFE70A4099863C528F /* Assets.xcassets in Resources */,
+				490F2537B8D212F8A650292A /* PrivacyInfo.xcprivacy in Resources */,
 				66F9470F65E9A3816842F19A /* great-wave.jpg in Resources */,
 				A76AC7623151FC556757845F /* starry-night.jpg in Resources */,
 				7B37ECB9B667A26E974C389E /* water-lilies.jpg in Resources */,
@@ -270,6 +274,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = NO;
 				DEVELOPMENT_TEAM = UG9L8XZFD7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -289,8 +294,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.vaswan.jigsaw;
 				PRODUCT_NAME = Jigsaw;
 				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = "1,2,6";
 			};
 			name = Debug;
 		};
@@ -366,6 +373,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = NO;
 				DEVELOPMENT_TEAM = UG9L8XZFD7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -385,8 +393,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.vaswan.jigsaw;
 				PRODUCT_NAME = Jigsaw;
 				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = "1,2,6";
 			};
 			name = Release;
 		};

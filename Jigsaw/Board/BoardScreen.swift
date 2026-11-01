@@ -46,7 +46,8 @@ struct BoardScreen: View {
         }
         .animation(.spring(duration: 0.5), value: session?.isSolved)
         .animation(.spring(duration: 0.4), value: session?.collaborators)
-        .sheet(isPresented: $showingAccount) { AccountSheet() }
+        // Handed over explicitly: on a Mac, sheets don't always inherit them.
+        .sheet(isPresented: $showingAccount) { AccountSheet().environment(store).environment(account) }
         .alert("Couldn't share", isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -69,6 +70,7 @@ struct BoardScreen: View {
     private var chrome: some View {
         HStack(spacing: 10) {
             ChromeButton(systemImage: "chevron.left", label: "Back to puzzles") { leave() }
+                .keyboardShortcut(.escape, modifiers: [])
             Spacer(minLength: 8)
             if let session, !session.isSolved {
                 // Narrow screens drop the faces and fold the clock into the counter.

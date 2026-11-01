@@ -41,7 +41,19 @@ struct LibraryView: View {
                 start(photo, rows: rows, cols: cols, seed: seed, snapToBoard: snapToBoard)
             }
         }
-        .sheet(isPresented: $showingAccount) { AccountSheet() }
+        // Handed over explicitly: on a Mac, sheets don't always inherit them.
+        .sheet(isPresented: $showingAccount) { AccountSheet().environment(store).environment(account) }
+        // A picture dragged in (from Finder, or another app beside this one) starts a new puzzle.
+        .dropDestination(for: Data.self) { items, _ in
+            guard let data = items.first, draft == nil else { return false }
+            Task {
+                let photo = await Task.detached(priority: .userInitiated) {
+                    UIImage(data: data).map { PhotoPrep.prepare($0, longSide: 3200) }
+                }.value
+                if let photo { draft = Draft(photo: photo) }
+            }
+            return true
+        }
         .alert("Delete this puzzle?", isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
                presenting: pendingDelete) { puzzle in
             Button("Delete", role: .destructive) { store.delete(puzzle.id) }
@@ -87,6 +99,7 @@ struct LibraryView: View {
                     }
                     .buttonStyle(.plain)
                     .chromeBackground(Circle())
+                    .keyboardShortcut("n")
                     .accessibilityLabel("New puzzle")
                 }
 
