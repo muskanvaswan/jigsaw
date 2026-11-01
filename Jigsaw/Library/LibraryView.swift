@@ -46,8 +46,9 @@ struct LibraryView: View {
                presenting: pendingDelete) { puzzle in
             Button("Delete", role: .destructive) { store.delete(puzzle.id) }
         } message: { puzzle in
-            Text(puzzle.cloud?.isOwner == true ? "It will be removed for everyone you shared it with."
-                 : puzzle.cloud != nil ? "You'll leave this shared puzzle." : "Its progress will be lost.")
+            Text(puzzle.cloud.map { !$0.isOwner ? "You'll leave this shared puzzle."
+                                     : $0.isShared ? "It will be removed for everyone you shared it with, and from your other devices."
+                                     : "It will be removed from all your devices." } ?? "Its progress will be lost.")
         }
         .alert("Couldn't share", isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
             Button("OK", role: .cancel) {}
@@ -96,7 +97,7 @@ struct LibraryView: View {
                         }
                         .buttonStyle(.plain)
                         .contextMenu {
-                            Button(puzzle.cloud != nil ? "People…" : "Solve Together…", systemImage: "person.2") { share(puzzle) }
+                            Button(puzzle.cloud?.isShared == true ? "People…" : "Solve Together…", systemImage: "person.2") { share(puzzle) }
                             Button("Start Over", systemImage: "arrow.counterclockwise") { store.restart(puzzle.id) }
                             Button("Delete", systemImage: "trash", role: .destructive) { pendingDelete = puzzle }
                         }
@@ -129,7 +130,9 @@ struct LibraryView: View {
         Task {
             let id = await store.create(photo: photo, rows: rows, cols: cols, seed: seed, snapToBoard: snapToBoard)
             isCreating = false
-            if let id { open(id) }
+            guard let id else { return }
+            open(id)
+            if account.isSignedIn, store.syncsAll { await store.backUp(id) }
         }
     }
 }
@@ -155,7 +158,7 @@ private struct PuzzleCard: View {
             .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
             HStack(spacing: 6) {
-                if puzzle.cloud != nil {
+                if puzzle.cloud?.isShared == true {
                     Image(systemName: "person.2.fill")
                         .accessibilityLabel("Shared")
                 }

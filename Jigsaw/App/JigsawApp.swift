@@ -46,8 +46,12 @@ struct RootView: View {
         }
         .statusBarHidden(openPuzzle != nil)
         .persistentSystemOverlays(openPuzzle == nil ? .automatic : .hidden)
-        .onAppear(perform: acceptInvitation)
+        .onAppear {
+            acceptInvitation()
+            catchUp()
+        }
         .onChange(of: invitations.pending.count) { _, _ in acceptInvitation() }
+        .onChange(of: account.isSignedIn) { _, _ in catchUp() }
         .onChange(of: openPuzzle) { _, open in
             if open == nil { catchUp() }
         }
@@ -76,10 +80,11 @@ struct RootView: View {
         }
     }
 
-    /// Brings shared puzzles up to date in the library. Only bothers iCloud for people who share.
+    /// Brings the library up to date with iCloud, and puts new puzzles there when signed in.
+    /// Only bothers iCloud for people who sign in or share.
     private func catchUp() {
         guard account.isSignedIn || store.puzzles.contains(where: { $0.cloud != nil }) else { return }
-        let open = openPuzzle
-        Task { await store.refreshShared(except: open) }
+        let open = openPuzzle, signedIn = account.isSignedIn
+        Task { await store.catchUp(signedIn: signedIn, except: open) }
     }
 }

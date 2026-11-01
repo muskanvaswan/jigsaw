@@ -1,14 +1,18 @@
 import CloudKit
 import UIKit
 
-/// Where a shared puzzle lives in iCloud.
+/// Where a puzzle lives in iCloud.
 struct CloudLink: Codable, Equatable {
     var zoneName: String
     var ownerName: String
-    /// The person who shared the puzzle keeps it in their private database; everyone else
-    /// reaches it through their shared database.
+    /// The person who made the puzzle keeps it in their private database; everyone they shared
+    /// it with reaches it through their shared database.
     var isOwner: Bool
+    /// Whether anyone else has been invited. Puzzles only went to iCloud when shared before
+    /// every puzzle did, so older links leave this out.
+    var shared: Bool?
 
+    var isShared: Bool { !isOwner || shared != false }
     var zoneID: CKRecordZone.ID { CKRecordZone.ID(zoneName: zoneName, ownerName: ownerName) }
 }
 
@@ -27,6 +31,9 @@ struct CloudChanges {
     var pieces: [PieceState]?
     var snapToBoard: Bool?
     var solvedAt: Date?
+    /// The most time any device has counted on the puzzle since it was last started over.
+    var playTime: TimeInterval?
+    var restartedAt: Date?
     var collaborators: [Collaborator] = []
 }
 
@@ -36,14 +43,16 @@ enum CloudError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unavailable: "Sign in to iCloud in Settings to share puzzles."
+        case .unavailable: "Sign in to iCloud in the Settings app first."
         case .incomplete: "This puzzle couldn't be fully downloaded. Try again in a moment."
         }
     }
 }
 
-/// Keeps shared puzzles in iCloud. Each one is a record zone shared as a whole with everyone invited,
+/// Keeps puzzles in iCloud. Each one is a record zone (shared as a whole with everyone invited, if anyone is)
 /// holding the photo and cut ("Puzzle"), where every piece is ("Board"), and one "Player" record per person.
+/// The private database's default zone holds whether to sync every puzzle ("Preferences"), and a "Deleted"
+/// note for each puzzle deleted, so your other devices can tell that apart from sync being switched off.
 @MainActor
 final class CloudSync {
     static let shared = CloudSync()
@@ -67,28 +76,15 @@ final class CloudSync {
         get async { (try? await container.accountStatus()) == .available }
     }
 
-    // MARK: - Sharing
+    // MARK: - Keeping puzzles in iCloud
 
-    /// Puts a puzzle in iCloud the first time it's shared, and returns the share to invite people to.
-    func share(_ puzzle: PuzzleRecord, photo: URL, thumbnail: UIImage?) async throws -> (CKShare, CloudLink) {
+    /// Puts a puzzle in iCloud, unshared. Safe to repeat: if another device already put the same puzzle
+    /// there, the pieces are merged. Returns where it lives and the merged pieces.
+    func upload(_ puzzle: PuzzleRecord, photo: URL) async throws -> (CloudLink, [PieceState]) {
         guard await isAvailable else { throw CloudError.unavailable }
-        let thumbnailData = thumbnail?.jpegData(compressionQuality: 0.7)
-
-        if let link = puzzle.cloud {
-            let db = database(for: link)
-            let shareID = CKRecord.ID(recordName: CKRecordNameZoneWideShare, zoneID: link.zoneID)
-            if let share = try? await db.record(for: shareID) as? CKShare { return (share, link) }
-            // The owner stopped sharing earlier; share the same puzzle again.
-            let share = makeShare(link.zoneID, thumbnail: thumbnailData)
-            let saved = try await db.modifyRecords(saving: [share], deleting: []).saveResults[share.recordID]
-            guard case .success(let record as CKShare) = saved else { throw CloudError.incomplete }
-            return (record, link)
-        }
-
         let db = container.privateCloudDatabase
         let zone = CKRecordZone(zoneName: Self.zonePrefix + puzzle.id.uuidString)
         _ = try await db.modifyRecordZones(saving: [zone], deleting: [])
-        let link = CloudLink(zoneName: zone.zoneID.zoneName, ownerName: zone.zoneID.ownerName, isOwner: true)
 
         let cut = CKRecord(recordType: "Puzzle", recordID: CKRecord.ID(recordName: "puzzle", zoneID: zone.zoneID))
         cut["rows"] = puzzle.rows
@@ -98,16 +94,31 @@ final class CloudSync {
         cut["boardHeight"] = puzzle.boardHeight
         cut["createdAt"] = puzzle.createdAt
         cut["photo"] = CKAsset(fileURL: photo)
+        let saved = try await db.modifyRecords(saving: [cut], deleting: [], savePolicy: .allKeys).saveResults[cut.recordID]
+        if case .failure(let error) = saved { throw error }
 
-        let board = CKRecord(recordType: "Board", recordID: CKRecord.ID(recordName: "board", zoneID: zone.zoneID))
-        fill(board, pieces: puzzle.pieces, from: puzzle)
+        var linked = puzzle
+        linked.cloud = CloudLink(zoneName: zone.zoneID.zoneName, ownerName: zone.zoneID.ownerName, isOwner: true, shared: false)
+        // Anything remembered about the zone may be from before it was last taken out.
+        forget(linked.cloud!)
+        let pieces = try await push(linked)
+        return (linked.cloud!, pieces)
+    }
 
-        let share = makeShare(zone.zoneID, thumbnail: thumbnailData)
-        let results = try await db.modifyRecords(saving: [cut, board, share], deleting: []).saveResults
-        for result in results.values { if case .failure(let error) = result { throw error } }
-        if case .success(let saved) = results[board.recordID] { boards[link.zoneName] = saved }
-        guard case .success(let saved as CKShare) = results[share.recordID] else { throw CloudError.incomplete }
-        return (saved, link)
+    /// Returns the share to invite people to, putting the puzzle in iCloud first if it isn't yet.
+    func share(_ puzzle: PuzzleRecord, photo: URL, thumbnail: UIImage?) async throws -> (CKShare, CloudLink) {
+        guard await isAvailable else { throw CloudError.unavailable }
+        var link: CloudLink
+        if let existing = puzzle.cloud { link = existing } else { link = try await upload(puzzle, photo: photo).0 }
+        link.shared = true
+
+        let db = database(for: link)
+        let shareID = CKRecord.ID(recordName: CKRecordNameZoneWideShare, zoneID: link.zoneID)
+        if let share = try? await db.record(for: shareID) as? CKShare { return (share, link) }
+        let share = makeShare(link.zoneID, thumbnail: thumbnail?.jpegData(compressionQuality: 0.7))
+        let saved = try await db.modifyRecords(saving: [share], deleting: []).saveResults[share.recordID]
+        guard case .success(let record as CKShare) = saved else { throw CloudError.incomplete }
+        return (record, link)
     }
 
     private func makeShare(_ zoneID: CKRecordZone.ID, thumbnail: Data?) -> CKShare {
@@ -128,8 +139,8 @@ final class CloudSync {
         return try await download(zoneID, isOwner: false)
     }
 
-    /// Shared puzzles in iCloud with no copy on this device yet: ones others shared with us,
-    /// and our own after reinstalling or on another iPad.
+    /// Puzzles in iCloud with no copy on this device yet: ones others shared with us,
+    /// and our own from another device or from before reinstalling.
     func missingPuzzles(known: Set<String>) async -> [(PuzzleRecord, Data)] {
         guard await isAvailable else { return [] }
         var found: [(PuzzleRecord, Data)] = []
@@ -154,7 +165,9 @@ final class CloudSync {
               let photo = try? Data(contentsOf: photoURL)
         else { throw CloudError.incomplete }
 
-        let link = CloudLink(zoneName: zoneID.zoneName, ownerName: zoneID.ownerName, isOwner: isOwner)
+        let shareID = CKRecord.ID(recordName: CKRecordNameZoneWideShare, zoneID: zoneID)
+        let shared = isOwner ? (try? await db.record(for: shareID)) != nil : true
+        let link = CloudLink(zoneName: zoneID.zoneName, ownerName: zoneID.ownerName, isOwner: isOwner, shared: shared)
         boards[link.zoneName] = board
         let id = UUID(uuidString: String(zoneID.zoneName.dropFirst(Self.zonePrefix.count))) ?? UUID()
         var puzzle = PuzzleRecord(id: id, createdAt: cut["createdAt"] as? Date ?? Date(), updatedAt: Date(),
@@ -164,19 +177,89 @@ final class CloudSync {
                                   snapToBoard: (board["snapToBoard"] as? Int).map { $0 != 0 },
                                   cloud: link)
         puzzle.pieces = Self.pieces(of: board) ?? puzzle.geometry.startingPieces()
+        puzzle.playTime = board["playTime"] as? Double ?? 0
+        puzzle.restartedAt = board["restartedAt"] as? Date
         return (puzzle, photo)
     }
 
-    /// Owners take the puzzle out of iCloud for everyone; anyone else just leaves it.
+    /// A deleted puzzle: owners take it out of iCloud for everyone, and leave a note so their other
+    /// devices delete it too; anyone else just leaves it.
     func remove(_ link: CloudLink) async {
         if link.isOwner {
-            _ = try? await container.privateCloudDatabase.modifyRecordZones(saving: [], deleting: [link.zoneID])
+            let note = CKRecord(recordType: "Deleted", recordID: Self.deletedID(link.zoneName))
+            _ = try? await container.privateCloudDatabase.modifyRecords(saving: [note], deleting: [], savePolicy: .allKeys)
+            await takeOut(link)
         } else {
             let shareID = CKRecord.ID(recordName: CKRecordNameZoneWideShare, zoneID: link.zoneID)
             _ = try? await container.sharedCloudDatabase.modifyRecords(saving: [], deleting: [shareID])
+            forget(link)
         }
+    }
+
+    /// Takes one of your puzzles out of iCloud, leaving the copies on your devices alone.
+    @discardableResult
+    func takeOut(_ link: CloudLink) async -> Bool {
+        guard link.isOwner else { return false }
+        do {
+            _ = try await container.privateCloudDatabase.modifyRecordZones(saving: [], deleting: [link.zoneID])
+        } catch {
+            guard Self.isGone(error) else { return false }
+        }
+        forget(link)
+        return true
+    }
+
+    /// Whether one of your puzzles missing from iCloud was deleted on another device, rather than
+    /// taken out when sync was switched off. Nil when iCloud can't say.
+    func wasDeleted(_ link: CloudLink) async -> Bool? {
+        do {
+            _ = try await container.privateCloudDatabase.record(for: Self.deletedID(link.zoneName))
+            return true
+        } catch let error as CKError where error.code == .unknownItem {
+            return false
+        } catch {
+            return nil
+        }
+    }
+
+    /// The puzzle's zone no longer exists: deleted, or taken out of iCloud.
+    static func isGone(_ error: Error) -> Bool {
+        guard let error = error as? CKError else { return false }
+        if [.zoneNotFound, .userDeletedZone].contains(error.code) { return true }
+        return error.partialErrorsByItemID?.values.contains { isGone($0) } ?? false
+    }
+
+    private func forget(_ link: CloudLink) {
         boards[link.zoneName] = nil
         tokens[link.zoneName] = nil
+        players[link.zoneName] = nil
+    }
+
+    private static func deletedID(_ zoneName: String) -> CKRecord.ID { CKRecord.ID(recordName: "deleted-" + zoneName) }
+
+    // MARK: - Syncing every puzzle
+
+    private static let preferencesID = CKRecord.ID(recordName: "preferences")
+
+    /// Whether every puzzle should go to iCloud. One setting for all your devices. Nil when iCloud can't say.
+    func syncsAll() async -> Bool? {
+        do {
+            let record = try await container.privateCloudDatabase.record(for: Self.preferencesID)
+            return (record["syncAll"] as? Int).map { $0 != 0 } ?? true
+        } catch let error as CKError where error.code == .unknownItem {
+            return true
+        } catch {
+            return nil
+        }
+    }
+
+    func setSyncsAll(_ on: Bool) async throws {
+        guard await isAvailable else { throw CloudError.unavailable }
+        let record = CKRecord(recordType: "Preferences", recordID: Self.preferencesID)
+        record["syncAll"] = on ? 1 : 0
+        let saved = try await container.privateCloudDatabase.modifyRecords(saving: [record], deleting: [], savePolicy: .allKeys)
+            .saveResults[record.recordID]
+        if case .failure(let error) = saved { throw error }
     }
 
     // MARK: - Syncing
@@ -188,7 +271,15 @@ final class CloudSync {
         let db = database(for: link)
         let id = CKRecord.ID(recordName: "board", zoneID: link.zoneID)
         var record: CKRecord
-        if let known = boards[link.zoneName] { record = known } else { record = try await db.record(for: id) }
+        if let known = boards[link.zoneName] {
+            record = known
+        } else {
+            do {
+                record = try await db.record(for: id)
+            } catch let error as CKError where error.code == .unknownItem {
+                record = CKRecord(recordType: "Board", recordID: id)
+            }
+        }
 
         var pieces = puzzle.pieces
         for _ in 0..<4 {
@@ -211,15 +302,23 @@ final class CloudSync {
         return pieces
     }
 
-    /// Everything that changed in a shared puzzle since the last look, plus who has been here.
+    /// Everything that changed in a puzzle since the last look, plus who has been here.
     func changes(in link: CloudLink) async throws -> CloudChanges {
         let db = database(for: link)
         var changes = CloudChanges()
         var token = tokens[link.zoneName]
         var moreComing = true
         while moreComing {
-            let result = try await db.recordZoneChanges(inZoneWith: link.zoneID, since: token,
-                                                        desiredKeys: ["pieces", "snapToBoard", "solvedAt", "name", "seenAt"])
+            let result: (modificationResultsByID: [CKRecord.ID: Result<CKDatabase.RecordZoneChange.Modification, Error>],
+                         deletions: [CKDatabase.RecordZoneChange.Deletion], changeToken: CKServerChangeToken, moreComing: Bool)
+            do {
+                result = try await db.recordZoneChanges(inZoneWith: link.zoneID, since: token,
+                                                        desiredKeys: ["pieces", "snapToBoard", "solvedAt", "playTime", "restartedAt", "name", "seenAt"])
+            } catch let error as CKError where error.code == .changeTokenExpired && token != nil {
+                // The zone was taken out of iCloud and put back since the last look: read it all again.
+                token = nil
+                continue
+            }
             for case .success(let modification) in result.modificationResultsByID.values {
                 let record = modification.record
                 switch record.recordType {
@@ -228,6 +327,8 @@ final class CloudSync {
                     changes.pieces = Self.pieces(of: record)
                     changes.snapToBoard = (record["snapToBoard"] as? Int).map { $0 != 0 }
                     changes.solvedAt = record["solvedAt"] as? Date
+                    changes.playTime = record["playTime"] as? Double
+                    changes.restartedAt = record["restartedAt"] as? Date
                 case "Player":
                     let person = Collaborator(id: record.recordID.recordName, name: record["name"] as? String ?? "Someone",
                                               seenAt: record["seenAt"] as? Date ?? .distantPast)
@@ -267,6 +368,10 @@ final class CloudSync {
         }
         record["snapToBoard"] = puzzle.snapsToBoard ? 1 : 0
         record["solvedAt"] = puzzle.solvedAt
+        var clock = puzzle
+        clock.takeClock(record["playTime"] as? Double, restartedAt: record["restartedAt"] as? Date)
+        record["playTime"] = clock.playTime
+        record["restartedAt"] = clock.restartedAt
     }
 
     private static func pieces(of record: CKRecord) -> [PieceState]? {

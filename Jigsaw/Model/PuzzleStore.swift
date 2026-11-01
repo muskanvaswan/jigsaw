@@ -4,13 +4,19 @@ import UIKit
 
 /// All puzzles on this device. Each lives in its own folder under Application Support:
 /// `photo.jpg`, `puzzle.json` (piece positions and progress) and `thumbnail.png`.
+@MainActor
 @Observable
 final class PuzzleStore {
     private(set) var puzzles: [PuzzleRecord] = []
     private(set) var thumbnails: [UUID: UIImage] = [:]
+    /// Whether every puzzle goes to iCloud while you're signed in, so it follows you to your other devices.
+    /// One setting for all your devices, kept in iCloud and remembered here for when it can't be reached.
+    private(set) var syncsAll = UserDefaults.standard.object(forKey: PuzzleStore.syncsAllKey) as? Bool ?? true
 
     @ObservationIgnored private let root: URL
     @ObservationIgnored private let disk = DispatchQueue(label: "PuzzleStore.disk", qos: .utility)
+    @ObservationIgnored private var uploading: Set<UUID> = []
+    private static let syncsAllKey = "sync.all"
 
     init() {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -105,6 +111,7 @@ final class PuzzleStore {
         let now = Date().timeIntervalSinceReferenceDate
         record.pieces = geometry.startingPieces().map { var piece = $0; piece.t = now; return piece }
         record.playTime = 0
+        record.restartedAt = Date()
         record.solvedAt = nil
         record.spreadOut = nil
         record.updatedAt = Date()
@@ -121,18 +128,87 @@ final class PuzzleStore {
         }
     }
 
-    /// Deleting a shared puzzle also takes it out of iCloud if it's yours, or leaves it if it isn't.
+    /// Deleting a puzzle in iCloud also takes it out for you and anyone you shared it with if it's yours,
+    /// or leaves it if it isn't.
     func delete(_ id: UUID) {
         if let link = record(id)?.cloud {
             Task { await CloudSync.shared.remove(link) }
         }
+        removeLocally(id)
+    }
+
+    private func removeLocally(_ id: UUID) {
         puzzles.removeAll { $0.id == id }
         thumbnails[id] = nil
         let folder = folder(id)
         disk.async { try? FileManager.default.removeItem(at: folder) }
     }
 
-    // MARK: - Shared puzzles
+    // MARK: - iCloud
+
+    /// Brings everything up to date with iCloud: moves made elsewhere, puzzles from your other devices or shared
+    /// with you, and, when you're signed in, any puzzle only on this device so far. Skips the one open on screen,
+    /// which keeps itself up to date.
+    func catchUp(signedIn: Bool, except openID: UUID?) async {
+        if signedIn, let on = await CloudSync.shared.syncsAll() { remember(on) }
+        await refreshShared(except: openID)
+        if signedIn, syncsAll { await backUpAll() }
+    }
+
+    /// Switches syncing every puzzle on or off, for all your devices. Off takes your puzzles out of iCloud to
+    /// free up space, keeping the copies on your devices; shared puzzles stay so others can carry on.
+    func setSyncsAll(_ on: Bool) async throws {
+        try await CloudSync.shared.setSyncsAll(on)
+        remember(on)
+        guard !on else {
+            await backUpAll()
+            return
+        }
+        // First bring over anything that's only on your other devices, so this one keeps a copy of everything.
+        await refreshShared(except: nil)
+        for record in puzzles {
+            guard let link = record.cloud, link.isOwner, !link.isShared else { continue }
+            if await CloudSync.shared.takeOut(link) { unlink(record.id) }
+        }
+    }
+
+    private func remember(_ on: Bool) {
+        syncsAll = on
+        UserDefaults.standard.set(on, forKey: Self.syncsAllKey)
+    }
+
+    /// Puts a puzzle that's only on this device into iCloud.
+    func backUp(_ id: UUID) async {
+        guard let record = record(id), record.cloud == nil, uploading.insert(id).inserted else { return }
+        defer { uploading.remove(id) }
+        guard let (link, pieces) = try? await CloudSync.shared.upload(record, photo: photoURL(id)) else { return }
+        guard var latest = self.record(id) else {
+            // Deleted while it was uploading.
+            await CloudSync.shared.remove(link)
+            return
+        }
+        // Sharing it meanwhile put it in iCloud too, and knows it's shared.
+        if latest.cloud == nil { latest.cloud = link }
+        latest.pieces = PieceState.merge(latest.pieces, pieces)
+        save(latest)
+    }
+
+    private func backUpAll() async {
+        for record in puzzles where record.cloud == nil { await backUp(record.id) }
+    }
+
+    private func unlink(_ id: UUID) {
+        guard var record = record(id) else { return }
+        record.cloud = nil
+        save(record)
+    }
+
+    /// One of your puzzles is no longer in iCloud. Deleted on another device: delete it here too. Taken out
+    /// when sync was switched off, or not in the iCloud account signed in now: keep it here, unlinked.
+    private func lost(_ id: UUID, link: CloudLink) async {
+        guard let deleted = await CloudSync.shared.wasDeleted(link) else { return }
+        if deleted { removeLocally(id) } else { unlink(id) }
+    }
 
     /// Puts the puzzle in iCloud if it isn't yet, and returns the share to invite people with.
     func share(_ id: UUID) async throws -> CKShare {
@@ -154,14 +230,27 @@ final class PuzzleStore {
         return record.id
     }
 
-    /// Catches up with shared puzzles: moves others made while you were away, and puzzles shared
-    /// with you (or yours from another device) that aren't here yet. Skips the one open on screen,
-    /// which keeps itself up to date.
-    func refreshShared(except openID: UUID?) async {
+    /// Catches up with puzzles in iCloud: moves made on other devices or by others while you were away,
+    /// and puzzles shared with you (or yours from another device) that aren't here yet.
+    private func refreshShared(except openID: UUID?) async {
         for record in puzzles where record.cloud != nil && record.id != openID {
-            guard let link = record.cloud, let changes = try? await CloudSync.shared.changes(in: link) else { continue }
+            guard let link = record.cloud else { continue }
+            let changes: CloudChanges
+            do {
+                changes = try await CloudSync.shared.changes(in: link)
+            } catch {
+                if link.isOwner, CloudSync.isGone(error) { await lost(record.id, link: link) }
+                continue
+            }
             guard var latest = self.record(record.id) else { continue }
             var changed = false
+            if (changes.restartedAt ?? .distantPast) > (latest.restartedAt ?? .distantPast) {
+                // Started over on another device.
+                latest.solvedAt = changes.solvedAt
+                latest.spreadOut = nil
+                changed = true
+            }
+            if latest.takeClock(changes.playTime, restartedAt: changes.restartedAt) { changed = true }
             if let theirs = changes.pieces, PieceState.hasNewer(theirs, than: latest.pieces) {
                 latest.pieces = PieceState.merge(latest.pieces, theirs)
                 changed = true

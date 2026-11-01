@@ -2,8 +2,8 @@ import CloudKit
 import Observation
 import UIKit
 
-/// One open puzzle: its cut pieces, the clock, saving progress, and keeping a shared puzzle in step
-/// with everyone else solving it.
+/// One open puzzle: its cut pieces, the clock, saving progress, and keeping a puzzle in iCloud in step
+/// with your other devices and everyone else solving it.
 @MainActor
 @Observable
 final class BoardSession {
@@ -23,6 +23,7 @@ final class BoardSession {
     @ObservationIgnored private var playingSince: Date?
     @ObservationIgnored private var pendingSave: Task<Void, Never>?
     @ObservationIgnored private var syncing: Task<Void, Never>?
+    @ObservationIgnored private var checkedInAt: Date?
     @ObservationIgnored private var isPushing = false
     @ObservationIgnored private var pushAgain = false
 
@@ -116,6 +117,7 @@ final class BoardSession {
         pendingSave?.cancel()
         pendingSave = nil
         guard let board, let store else { return }
+        adoptLink()
         bankPlayTime()
         record.pieces = board.pieceStates()
         record.updatedAt = Date()
@@ -131,9 +133,9 @@ final class BoardSession {
         if sharing { push() }
     }
 
-    // MARK: - Solving together
+    // MARK: - Syncing and solving together
 
-    var isShared: Bool { record.cloud != nil }
+    var isShared: Bool { record.cloud?.isShared == true }
 
     /// Shares the puzzle (putting it in iCloud the first time) and returns the share to invite people with.
     func share() async throws -> CKShare {
@@ -144,16 +146,14 @@ final class BoardSession {
         return share
     }
 
-    /// While a shared puzzle is open: say you're here, and look for everyone else's moves every few seconds.
+    /// While the puzzle is open: look for moves made on your other devices, or by everyone else if it's shared
+    /// (and say you're here).
     func startSyncing(as name: String) {
-        guard let link = record.cloud, syncing == nil else { return }
+        guard syncing == nil else { return }
         syncing = Task { [weak self] in
-            var round = 0
             while !Task.isCancelled {
-                if round % 5 == 0 { await CloudSync.shared.checkIn(link, name: name) }
-                await self?.pull()
-                round += 1
-                try? await Task.sleep(for: .seconds(3))
+                guard let pause = await self?.sync(as: name) else { return }
+                try? await Task.sleep(for: .seconds(pause))
             }
         }
     }
@@ -161,11 +161,31 @@ final class BoardSession {
     func stopSyncing() {
         syncing?.cancel()
         syncing = nil
+        checkedInAt = nil
+    }
+
+    /// One look at iCloud. Returns how long to wait before the next: not long when others may be solving too.
+    private func sync(as name: String) async -> Double {
+        adoptLink()
+        guard let link = record.cloud else { return 5 }
+        if link.isShared, checkedInAt.map({ $0.timeIntervalSinceNow < -15 }) ?? true {
+            checkedInAt = Date()
+            await CloudSync.shared.checkIn(link, name: name)
+        }
+        await pull()
+        return link.isShared ? 3 : 10
+    }
+
+    /// The puzzle can go into iCloud (or come out) while it's open; the store knows where it lives.
+    private func adoptLink() {
+        if let stored = store?.record(record.id) { record.cloud = stored.cloud }
     }
 
     private func pull() async {
         guard let link = record.cloud, let changes = try? await CloudSync.shared.changes(in: link) else { return }
         collaborators = changes.collaborators
+        bankPlayTime()
+        record.takeClock(changes.playTime, restartedAt: changes.restartedAt)
         if let snaps = changes.snapToBoard, snaps != record.snapsToBoard {
             record.snapToBoard = snaps
             board?.setSnapsToBoard(snaps)

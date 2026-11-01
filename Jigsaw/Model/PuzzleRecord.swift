@@ -36,11 +36,13 @@ struct PuzzleRecord: Codable, Identifiable, Equatable {
     var boardHeight: Double
     var pieces: [PieceState]
     var playTime: TimeInterval = 0
+    /// When the puzzle was last started over, which resets the clock on every device.
+    var restartedAt: Date?
     var solvedAt: Date?
     /// Whether pieces lock into their spot on the board, or only to the pieces beside them.
     /// Puzzles saved before this was a choice have no value and snap to the board.
     var snapToBoard: Bool?
-    /// Set once the puzzle is shared through iCloud.
+    /// Set once the puzzle is in iCloud.
     var cloud: CloudLink?
     /// Whether loose pieces were last laid out in rows rather than heaped up.
     var spreadOut: Bool?
@@ -62,5 +64,21 @@ struct PuzzleRecord: Codable, Identifiable, Equatable {
 
     var geometry: PuzzleGeometry {
         PuzzleGeometry(rows: rows, cols: cols, boardSize: CGSize(width: boardWidth, height: boardHeight), seed: seed)
+    }
+
+    /// Folds in another device's clock: starting over anywhere resets it everywhere, and otherwise the
+    /// puzzle has been played for as long as whichever device has counted most. Returns whether it changed.
+    @discardableResult
+    mutating func takeClock(_ playTime: TimeInterval?, restartedAt: Date?) -> Bool {
+        guard let playTime else { return false }
+        let mine = self.restartedAt ?? .distantPast, theirs = restartedAt ?? .distantPast
+        if theirs > mine {
+            self.restartedAt = restartedAt
+            self.playTime = playTime
+            return true
+        }
+        guard theirs == mine, playTime > self.playTime else { return false }
+        self.playTime = playTime
+        return true
     }
 }
