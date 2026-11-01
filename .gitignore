@@ -14,3 +14,6 @@ xcuserdata/
 
 # macOS
 .DS_Store
+
+# App Store screenshots are large and can be made again from the simulators.
+AppStore/Screenshots/
