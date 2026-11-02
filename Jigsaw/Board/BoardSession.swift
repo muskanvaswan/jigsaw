@@ -26,6 +26,10 @@ final class BoardSession {
     @ObservationIgnored private var checkedInAt: Date?
     @ObservationIgnored private var isPushing = false
     @ObservationIgnored private var pushAgain = false
+    @ObservationIgnored private var isClosed = false
+    /// When each piece had last moved as of the last change, so each move is told live just once.
+    @ObservationIgnored private var toldLive: [Double]
+    @ObservationIgnored private var lastCarry = Date.distantPast
 
     private init(record: PuzzleRecord, photo: UIImage, renderer: PieceRenderer, images: [UIImage], store: PuzzleStore) {
         self.record = record
@@ -35,6 +39,7 @@ final class BoardSession {
         self.store = store
         progressCount = record.progressCount
         isSolved = record.isSolved
+        toldLive = record.pieces.map { $0.t ?? 0 }
     }
 
     /// Loads the photo and cuts every piece off the main thread.
@@ -71,8 +76,19 @@ final class BoardSession {
 
     func setSnapsToBoard(_ snaps: Bool) {
         record.snapToBoard = snaps
+        if isLive { Live.shared.send(.snapToBoard(snaps)) }
         board?.setSnapsToBoard(snaps)
         save()
+    }
+
+    /// Done with the puzzle for now: the clock stops, everything is saved, and syncing stops. Safe to call twice.
+    func close() {
+        guard !isClosed else { return }
+        isClosed = true
+        pause()
+        save()
+        stopSyncing()
+        Live.shared.detach(self)
     }
 
     // MARK: - Clock
@@ -212,8 +228,12 @@ final class BoardSession {
         }
         isPushing = true
         let snapshot = record
+        // Finishes even if the app is put away meanwhile, so the last moves reach your other devices (and
+        // everyone else) without waiting for it to be opened again.
+        let background = BackgroundTime(named: "Saving to iCloud")
         Task {
             let merged = try? await CloudSync.shared.push(snapshot)
+            background.end()
             isPushing = false
             if let merged { take(merged) }
             if pushAgain {
@@ -224,9 +244,108 @@ final class BoardSession {
     }
 }
 
+// MARK: - Solving live
+
+extension BoardSession {
+    var isLive: Bool { Live.shared.isLive(record.id) }
+
+    /// What someone else did, solving live.
+    func receive(_ message: LiveMessage, from person: LivePerson) {
+        guard let board else { return }
+        switch message {
+        case .hold(let piece, let offset):
+            board.showHand(of: person, holding: piece, at: offset)
+        case .letGo(let piece):
+            board.removeHand(of: person.id, holding: piece)
+        case .moved(let theirs):
+            let mine = board.pieceStates()
+            var merged = mine
+            for (index, state) in theirs where merged.indices.contains(index) && (state.t ?? 0) > (merged[index].t ?? 0) {
+                merged[index] = state
+            }
+            guard merged != mine else { return }
+            board.apply(merged)
+            save(sharing: false)
+        case .snapToBoard(let snaps):
+            guard snaps != record.snapsToBoard else { return }
+            record.snapToBoard = snaps
+            board.setSnapsToBoard(snaps)
+        case .hello:
+            break
+        }
+    }
+
+    func livePeopleChanged(_ people: Set<UUID>) {
+        board?.removeHands(except: people)
+    }
+
+    /// Tells everyone live where pieces went since last time.
+    private func tellLive(_ board: BoardView) {
+        let states = board.pieceStates()
+        var moved: [Int: PieceState] = [:]
+        for (index, state) in states.enumerated() where toldLive.indices.contains(index) && (state.t ?? 0) != toldLive[index] {
+            moved[index] = state
+        }
+        toldLive = states.map { $0.t ?? 0 }
+        if isLive, !moved.isEmpty { Live.shared.send(.moved(moved)) }
+    }
+
+    #if DEBUG
+    /// Someone to solve with in the simulator, where there's no FaceTime: every so often they pick up a loose
+    /// piece, carry it over and put it where it belongs, through the same messages a real partner sends.
+    func pretendPartner() {
+        let sam = LivePerson(id: UUID(uuidString: "5A3E0000-0000-4000-8000-000000000001")!, name: "Sam Rivera")
+        Live.shared.pretend(sam, on: record.id)
+        let geometry = renderer.geometry
+        Task { [weak self] in
+            while true {
+                try? await Task.sleep(for: .seconds(1.5))
+                guard let self, let board = self.board, self.isLive, !self.isSolved else { return }
+                let states = board.pieceStates()
+                let groups = geometry.groups(states)
+                var sizes: [Int: Int] = [:]
+                for group in groups.compactMap({ $0 }) { sizes[group, default: 0] += 1 }
+                let loners = states.indices.filter { !states[$0].placed && (groups[$0].map { sizes[$0] == 1 } ?? true) }
+                guard let piece = loners.randomElement() else { return }
+                let home = geometry.home(piece)
+                let from = CGPoint(x: states[piece].x - home.x, y: states[piece].y - home.y)
+                for step in 0...40 {
+                    let t = Double(step) / 40, eased = t * t * (3 - 2 * t)
+                    self.receive(.hold(piece: piece, at: CGPoint(x: from.x * (1 - eased), y: from.y * (1 - eased))), from: sam)
+                    try? await Task.sleep(for: .milliseconds(33))
+                }
+                let now = Date().timeIntervalSinceReferenceDate
+                let placed = PieceState(x: home.x, y: home.y, placed: self.record.snapsToBoard, z: 0, t: now)
+                self.receive(.moved([piece: placed]), from: sam)
+                self.receive(.letGo(piece: piece), from: sam)
+            }
+        }
+    }
+    #endif
+}
+
 extension BoardSession: BoardViewDelegate {
     func boardDidChange(_ board: BoardView) {
         scheduleSave()
+        tellLive(board)
+    }
+
+    func board(_ board: BoardView, didLift piece: Int, at offset: CGPoint) {
+        guard isLive else { return }
+        lastCarry = Date()
+        Live.shared.send(.hold(piece: piece, at: offset))
+    }
+
+    func board(_ board: BoardView, didCarry piece: Int, to offset: CGPoint) {
+        // Often enough to look smooth to the others, without flooding the call.
+        guard isLive, lastCarry.timeIntervalSinceNow < -1.0 / 30 else { return }
+        lastCarry = Date()
+        Live.shared.send(.hold(piece: piece, at: offset), quickly: true)
+    }
+
+    func board(_ board: BoardView, didLetGo piece: Int) {
+        guard isLive else { return }
+        Live.shared.send(.letGo(piece: piece))
     }
 
     func board(_ board: BoardView, didProgress count: Int) {
@@ -239,5 +358,22 @@ extension BoardSession: BoardViewDelegate {
         if record.solvedAt == nil { record.solvedAt = Date() }
         isSolved = true
         save()
+    }
+}
+
+/// A little time to finish something should the app go to the background meanwhile.
+@MainActor
+private final class BackgroundTime {
+    private var id = UIBackgroundTaskIdentifier.invalid
+
+    init(named name: String) {
+        // When the time runs out, giving it back is all that's left to do.
+        id = UIApplication.shared.beginBackgroundTask(withName: name) { [weak self] in self?.end() }
+    }
+
+    func end() {
+        guard id != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(id)
+        id = .invalid
     }
 }

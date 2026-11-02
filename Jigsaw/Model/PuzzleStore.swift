@@ -16,6 +16,7 @@ final class PuzzleStore {
     @ObservationIgnored private let root: URL
     @ObservationIgnored private let disk = DispatchQueue(label: "PuzzleStore.disk", qos: .utility)
     @ObservationIgnored private var uploading: Set<UUID> = []
+    @ObservationIgnored private var isCatchingUp = false
     private static let syncsAllKey = "sync.all"
 
     init() {
@@ -150,6 +151,10 @@ final class PuzzleStore {
     /// with you, and, when you're signed in, any puzzle only on this device so far. Skips the one open on screen,
     /// which keeps itself up to date.
     func catchUp(signedIn: Bool, except openID: UUID?) async {
+        // One look at a time: the library looks again every little while, and a look can take longer than that.
+        guard !isCatchingUp else { return }
+        isCatchingUp = true
+        defer { isCatchingUp = false }
         if signedIn, let on = await CloudSync.shared.syncsAll() { remember(on) }
         await refreshShared(except: openID)
         if signedIn, syncsAll { await backUpAll() }

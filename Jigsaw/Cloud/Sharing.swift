@@ -17,7 +17,7 @@ enum Sharing {
         topViewController()?.present(controller, animated: true)
     }
 
-    private static func topViewController() -> UIViewController? {
+    static func topViewController() -> UIViewController? {
         let window = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .flatMap(\.windows)

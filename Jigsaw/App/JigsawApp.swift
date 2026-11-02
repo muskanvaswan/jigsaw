@@ -1,3 +1,4 @@
+import GroupActivities
 import SwiftUI
 
 @main
@@ -74,12 +75,24 @@ struct RootView: View {
             #endif
         }
         .onChange(of: invitations.pending.count) { _, _ in acceptInvitation() }
+        .task {
+            for await session in SolveLive.sessions() { joinLive(session) }
+        }
         .onChange(of: account.isSignedIn) { _, _ in catchUp() }
         .onChange(of: openPuzzle) { _, open in
             if open == nil { catchUp() }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { catchUp() }
+        }
+        // iCloud doesn't tell a running app about moves made on other devices or by everyone else,
+        // so the library looks again every little while it's on screen.
+        .task(id: openPuzzle == nil && scenePhase != .background) {
+            guard openPuzzle == nil, scenePhase != .background else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(15))
+                if !Task.isCancelled { catchUp() }
+            }
         }
         .alert("Couldn't open the puzzle", isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
             Button("OK", role: .cancel) {}
@@ -100,6 +113,26 @@ struct RootView: View {
                 failure = error.localizedDescription
             }
             acceptInvitation()
+        }
+    }
+
+    /// Joins someone solving live, and opens the puzzle: the copy here, or through the iCloud invitation if it
+    /// hasn't been opened on this device yet.
+    private func joinLive(_ session: GroupSession<SolveLive>) {
+        Live.shared.name = account.displayName
+        Live.shared.join(session)
+        let puzzleID = session.activity.puzzleID, shareURL = session.activity.shareURL
+        Task {
+            if store.record(puzzleID) == nil, let url = shareURL,
+               let metadata = try? await CloudSync.shared.container.shareMetadatas(for: [url])[url]?.get() {
+                _ = try? await store.accept(metadata)
+            }
+            guard store.record(puzzleID) != nil else {
+                Live.shared.leave()
+                failure = "This puzzle hasn't been shared with you yet. Ask whoever started it to invite you from Solve Together, then join again."
+                return
+            }
+            if openPuzzle != puzzleID { withAnimation(.easeInOut(duration: 0.3)) { openPuzzle = puzzleID } }
         }
     }
 

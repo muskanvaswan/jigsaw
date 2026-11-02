@@ -6,6 +6,8 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<key>com.apple.developer.group-session</key>
+	<true/>
 	<key>com.apple.developer.icloud-container-identifiers</key>
 	<array>
 		<string>iCloud.com.vaswan.jigsaw</string>

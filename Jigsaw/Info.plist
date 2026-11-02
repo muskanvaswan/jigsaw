@@ -22,5 +22,7 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSSupportsGroupActivities</key>
+	<true/>
 </dict>
 </plist>

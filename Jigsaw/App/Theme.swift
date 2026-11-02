@@ -23,11 +23,12 @@ extension Color {
 }
 
 extension View {
-    /// Liquid Glass where available, frosted material before that.
+    /// Liquid Glass where available, frosted material before that. Interactive glass answers a touch,
+    /// which suits a button more than a card.
     @ViewBuilder
-    func chromeBackground<S: Shape>(_ shape: S) -> some View {
+    func chromeBackground<S: Shape>(_ shape: S, interactive: Bool = true) -> some View {
         if #available(iOS 26.0, *) {
-            glassEffect(.regular.interactive(), in: shape)
+            glassEffect(interactive ? .regular.interactive() : .regular, in: shape)
         } else {
             background(.ultraThinMaterial, in: shape)
         }
@@ -45,7 +46,7 @@ struct ChromeButton: View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(size: 17, weight: .medium))
-                .foregroundStyle(isActive ? Color.accentColor : Color.primary)
+                .foregroundStyle(isActive ? Color("AccentColor") : Color.primary)
                 .frame(width: 46, height: 46)
                 .contentShape(Circle())
         }

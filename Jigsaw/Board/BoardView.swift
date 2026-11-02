@@ -6,6 +6,11 @@ protocol BoardViewDelegate: AnyObject {
     /// Pieces locked into the board, or joined to a neighbour when the puzzle doesn't snap to the board.
     func board(_ board: BoardView, didProgress count: Int)
     func boardDidFinish(_ board: BoardView)
+    /// You picked up the pieces joined to `piece`, which now lie `offset` from where they belong; then
+    /// carried them about; then let go.
+    func board(_ board: BoardView, didLift piece: Int, at offset: CGPoint)
+    func board(_ board: BoardView, didCarry piece: Int, to offset: CGPoint)
+    func board(_ board: BoardView, didLetGo piece: Int)
 }
 
 /// Holds pieces that can be anywhere, so it ignores its own bounds when hit-testing.
@@ -106,6 +111,8 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
     private let finished = UIImageView()
     private let looseLayer = PassthroughView()
     private var pieces: [PieceView] = []
+    /// Initials beside what other people are holding, solving live. Kept the same size however far you zoom.
+    private let handLayer = PassthroughView()
 
     private var scale: CGFloat = 1
     private var offset: CGPoint = .zero
@@ -118,6 +125,8 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
 
     private struct Drag {
         let group: GroupView
+        /// The piece the finger came down on.
+        let piece: Int
         let touch: UIGestureRecognizer
         let grab: CGPoint
         /// Where the finger came down on screen; auto-scroll waits until the piece has been carried away from it.
@@ -130,6 +139,14 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
     private var pendingRemote: [PieceState]?
     private var isFinished: Bool
     private var autoScroll: CADisplayLink?
+
+    /// Someone else, solving live, holding the pieces joined to `piece`.
+    private struct Hand {
+        let person: UUID
+        let piece: Int
+        let badge: UILabel
+    }
+    private var hands: [String: Hand] = [:]
     private var isPeeking = false
 
     /// How close a piece has to be dropped to where it fits before it snaps.
@@ -148,6 +165,7 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
         isMultipleTouchEnabled = true
         clipsToBounds = true
         addSubview(world)
+        addSubview(handLayer)
 
         let board = CGRect(origin: .zero, size: geometry.boardSize)
         let rim = max(geometry.boardSize.width, geometry.boardSize.height) * 0.006
@@ -246,6 +264,9 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
             piece.isUserInteractionEnabled = false
             placedLayer.addSubview(piece)
             piece.center = animated ? before[piece.index] : geometry.home(piece.index)
+            // It may have been in someone's hand, lifted, a moment ago.
+            piece.transform = .identity
+            piece.layer.shadowOpacity = 0
         }
 
         let groups = geometry.groups(states)
@@ -283,6 +304,13 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
         for piece in pieces { restyle([piece], flat: flat[piece.index]) }
         changedAt = states.map { $0.t ?? 0 }
         contentDidChange()
+        // Groups were made afresh, so lift again whatever someone else is holding.
+        for hand in hands.values {
+            guard let group = pieces[hand.piece].superview as? GroupView else { continue }
+            looseLayer.bringSubviewToFront(group)
+            lift(group)
+        }
+        placeBadges()
     }
 
     /// Pieces in the board or in a group are drawn flat; a lone loose piece keeps its shadow.
@@ -354,6 +382,7 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        handLayer.frame = bounds
         guard bounds.width > 0, bounds.height > 0, bounds.size != laidOutSize else { return }
         let previous = laidOutSize
         laidOutSize = bounds.size
@@ -374,6 +403,7 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
         world.transform = CGAffineTransform(scaleX: scale, y: scale)
         world.center = offset
         for drag in drags.values { follow(drag) }
+        placeBadges()
     }
 
     /// Everything on the table: where it all started plus wherever pieces have been put since.
@@ -556,17 +586,19 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
         let key = ObjectIdentifier(press)
         switch press.state {
         case .began:
+            // Someone else, live, may have it in hand already.
             guard let piece = press.view as? PieceView, let group = piece.superview as? GroupView,
-                  !isDragging(group) else { return }
+                  !isDragging(group), !isHeldElsewhere(group) else { return }
             haltCamera()
             looseLayer.bringSubviewToFront(group)
             let finger = press.location(in: looseLayer)
-            drags[key] = Drag(group: group, touch: press,
+            drags[key] = Drag(group: group, piece: piece.index, touch: press,
                               grab: CGPoint(x: group.center.x - finger.x, y: group.center.y - finger.y),
                               start: press.location(in: self))
             lift(group)
             contentDidChange()
             updateAutoScroll()
+            delegate?.board(self, didLift: piece.index, at: group.center)
         case .changed:
             if let drag = drags[key] { follow(drag) }
         case .ended, .cancelled, .failed:
@@ -575,6 +607,7 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
             follow(drag)
             updateAutoScroll()
             drop(drag.group)
+            delegate?.board(self, didLetGo: drag.piece)
             if drags.isEmpty, let remote = pendingRemote {
                 pendingRemote = nil
                 apply(PieceState.merge(pieceStates(), remote))
@@ -588,6 +621,7 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
         let finger = drag.touch.location(in: looseLayer)
         drag.group.center = CGPoint(x: finger.x + drag.grab.x, y: finger.y + drag.grab.y)
         contentDidChange()
+        delegate?.board(self, didCarry: drag.piece, to: drag.group.center)
     }
 
     private func lift(_ group: GroupView) {
@@ -857,6 +891,75 @@ final class BoardView: UIView, UIGestureRecognizerDelegate {
             self.animateCamera(to: target, offset: self.clampedOffset(self.centered(on: board, scale: target), scale: target))
         }
         delegate?.boardDidFinish(self)
+    }
+
+    // MARK: - Other people's hands, solving live
+
+    /// Shows someone else holding the pieces joined to `piece`, `offset` from where they belong: lifted, gliding
+    /// after their finger, with their initials beside them. Ignored if you're holding those pieces yourself.
+    func showHand(of person: LivePerson, holding piece: Int, at offset: CGPoint) {
+        guard pieces.indices.contains(piece), !isFinished, let group = pieces[piece].superview as? GroupView,
+              !isDragging(group) else { return }
+        let key = handKey(person.id, piece)
+        let isNew = hands[key] == nil
+        if isNew {
+            hands[key] = Hand(person: person.id, piece: piece, badge: badge(for: person))
+            looseLayer.bringSubviewToFront(group)
+            lift(group)
+            placeBadges()
+        }
+        // Their positions arrive about thirty times a second; easing between them keeps it smooth.
+        UIView.animate(withDuration: isNew ? 0.2 : 0.1, delay: 0, options: [.beginFromCurrentState, .curveLinear, .allowUserInteraction]) {
+            group.center = offset
+            self.placeBadges()
+        }
+        contentDidChange()
+    }
+
+    /// They let go: the pieces settle where they are, until the news of where they ended up arrives.
+    func removeHand(of person: UUID, holding piece: Int) {
+        guard let hand = hands.removeValue(forKey: handKey(person, piece)) else { return }
+        UIView.animate(withDuration: 0.2) { hand.badge.alpha = 0 } completion: { _ in hand.badge.removeFromSuperview() }
+        if let group = pieces[hand.piece].superview as? GroupView, !isDragging(group), !isHeldElsewhere(group) { setDown(group) }
+    }
+
+    /// Lets go of whatever is held by people who have left.
+    func removeHands(except people: Set<UUID>) {
+        for hand in hands.values where !people.contains(hand.person) { removeHand(of: hand.person, holding: hand.piece) }
+    }
+
+    private func handKey(_ person: UUID, _ piece: Int) -> String { "\(person.uuidString)/\(piece)" }
+
+    private func isHeldElsewhere(_ group: GroupView) -> Bool {
+        hands.values.contains { pieces[$0.piece].superview === group }
+    }
+
+    private func badge(for person: LivePerson) -> UILabel {
+        let badge = UILabel()
+        badge.text = person.name.initials
+        let font = UIFont.systemFont(ofSize: 13, weight: .semibold)
+        badge.font = font.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: 13) } ?? font
+        badge.textColor = .white
+        badge.textAlignment = .center
+        badge.backgroundColor = person.color
+        badge.bounds = CGRect(x: 0, y: 0, width: 30, height: 30)
+        badge.layer.cornerRadius = 15
+        badge.layer.borderWidth = 2
+        badge.layer.borderColor = UIColor.white.cgColor
+        badge.clipsToBounds = true
+        badge.isUserInteractionEnabled = false
+        badge.accessibilityLabel = person.name
+        handLayer.addSubview(badge)
+        return badge
+    }
+
+    /// Each badge just above the pieces it belongs to, wherever the camera is.
+    private func placeBadges() {
+        for hand in hands.values {
+            guard let group = pieces[hand.piece].superview as? GroupView else { continue }
+            let box = extent(of: group)
+            hand.badge.center = CGPoint(x: offset.x + box.midX * scale, y: offset.y + box.minY * scale - 20)
+        }
     }
 
     // MARK: - Auto-scroll while dragging near an edge

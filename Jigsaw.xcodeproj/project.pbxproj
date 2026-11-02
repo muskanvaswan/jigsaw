@@ -28,9 +28,11 @@
 		BA05F7DFE70A4099863C528F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 32751612D6C0071169790A39 /* Assets.xcassets */; };
 		BA5EE4C5448396D993D2E756 /* Click.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A769D024D02E722B5786DE5 /* Click.swift */; };
 		CC3F4CBF20F7511AA1AB9693 /* BoardSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B41A3FCC9AFEF7B47E77A48 /* BoardSession.swift */; };
+		D7A6111E1B76987D10665433 /* BoardTips.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFEED641DDE4127EC0DF9451 /* BoardTips.swift */; };
 		E9EF7A850C9F798ADFB82A5C /* DebugLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = A017DE3B66AD4C79C4DD07D2 /* DebugLaunch.swift */; };
 		EE14D9979EB78B0A5B5BCC7B /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E67EF32A3313EB3C6597868 /* Account.swift */; };
 		EFE6D7E62D4C130D177392C9 /* PuzzleRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 764B9DE41E2A42BA1952AFF4 /* PuzzleRecord.swift */; };
+		F7E1F28E1662BD3C636E49AC /* Live.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DF41666A8B09A9399A434FF /* Live.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,6 +41,7 @@
 		068FEDCE8223BDDE4CEC56A1 /* water-lilies.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "water-lilies.jpg"; sourceTree = "<group>"; };
 		082828929158510F69ADF369 /* PuzzleGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PuzzleGeometry.swift; sourceTree = "<group>"; };
 		0A769D024D02E722B5786DE5 /* Click.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Click.swift; sourceTree = "<group>"; };
+		0DF41666A8B09A9399A434FF /* Live.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Live.swift; sourceTree = "<group>"; };
 		100A3ED197684602F6B4D885 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		32751612D6C0071169790A39 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		38B24FFAFCFB736B4746DDCA /* StockImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StockImage.swift; sourceTree = "<group>"; };
@@ -56,6 +59,7 @@
 		BA659B86305047ED9B79F98B /* Jigsaw.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Jigsaw.entitlements; sourceTree = "<group>"; };
 		BAC8BD3D8CB37126B26F735A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		C75B9426D47BC0C72F226B87 /* CloudSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSync.swift; sourceTree = "<group>"; };
+		CFEED641DDE4127EC0DF9451 /* BoardTips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardTips.swift; sourceTree = "<group>"; };
 		DB2A65C8C297C49F2805097C /* BoardScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardScreen.swift; sourceTree = "<group>"; };
 		DD7BE5D6FC3749467BF82D75 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		E002688F0778B0712F2F060C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -123,6 +127,7 @@
 				CF1ACB43270853678EEBDA92 /* Board */,
 				1FDABE7F5E0A7F45EFC7D731 /* Cloud */,
 				7CA76C0B6248827997E3A345 /* Library */,
+				C02896BB992DFFF132A818C0 /* Live */,
 				DBB5C9532AD43AA37CC1DFEB /* Model */,
 				56199C9F13DC428A2CA00F92 /* Stock */,
 			);
@@ -139,6 +144,14 @@
 			path = Library;
 			sourceTree = "<group>";
 		};
+		C02896BB992DFFF132A818C0 /* Live */ = {
+			isa = PBXGroup;
+			children = (
+				0DF41666A8B09A9399A434FF /* Live.swift */,
+			);
+			path = Live;
+			sourceTree = "<group>";
+		};
 		C26BE82E24077BC8CCF0BE74 /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -152,6 +165,7 @@
 			children = (
 				DB2A65C8C297C49F2805097C /* BoardScreen.swift */,
 				7B41A3FCC9AFEF7B47E77A48 /* BoardSession.swift */,
+				CFEED641DDE4127EC0DF9451 /* BoardTips.swift */,
 				3B41DDA88501ADBF163A66FA /* BoardView.swift */,
 				0A769D024D02E722B5786DE5 /* Click.swift */,
 			);
@@ -249,12 +263,14 @@
 				7D6FEA80632EFA27992EA8FC /* AppDelegate.swift in Sources */,
 				1064A98F529EFBD5896F014E /* BoardScreen.swift in Sources */,
 				CC3F4CBF20F7511AA1AB9693 /* BoardSession.swift in Sources */,
+				D7A6111E1B76987D10665433 /* BoardTips.swift in Sources */,
 				399ED80926743DAE0B2C10FB /* BoardView.swift in Sources */,
 				BA5EE4C5448396D993D2E756 /* Click.swift in Sources */,
 				7EFFDA92D5A9799FC6EE28E7 /* CloudSync.swift in Sources */,
 				E9EF7A850C9F798ADFB82A5C /* DebugLaunch.swift in Sources */,
 				9EACF0599FFEA8531DB55A11 /* JigsawApp.swift in Sources */,
 				28E4492C5A9E0385525806E7 /* LibraryView.swift in Sources */,
+				F7E1F28E1662BD3C636E49AC /* Live.swift in Sources */,
 				ADF46CA6A917D43FB0C8AF07 /* NewPuzzleSheet.swift in Sources */,
 				39A62C768E47D3AB230D2187 /* PieceRenderer.swift in Sources */,
 				5AD0D964039E299A4332A40A /* PuzzleGeometry.swift in Sources */,

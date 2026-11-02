@@ -8,6 +8,7 @@ import SwiftUI
 /// - `-NewPuzzle <painting id>`: opens the new-puzzle sheet on one of the bundled paintings.
 /// - `-WindowSize 1440x900`: fixes the Mac window's size.
 /// - `-Appearance light` or `dark`: ignores the system's appearance.
+/// - `-LivePartner YES`: someone pretends to solve live with you in whichever puzzle you open.
 enum DebugLaunch {
     /// Launch arguments in the form `-Key value` arrive as user defaults.
     private static let arguments = UserDefaults.standard
@@ -16,6 +17,7 @@ enum DebugLaunch {
     static var openPuzzle: UUID? { arguments.string(forKey: "OpenPuzzle").flatMap(UUID.init(uuidString:)) }
     static var newPuzzle: String? { arguments.string(forKey: "NewPuzzle") }
     static var isScreenshotting: Bool { screenshot != nil }
+    static var livePartner: Bool { arguments.bool(forKey: "LivePartner") }
 
     static var appearance: ColorScheme? {
         switch arguments.string(forKey: "Appearance") {
